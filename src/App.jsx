@@ -3,20 +3,19 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /**
  * PROTOTYPE (no backend)
  * - Holds + angles stored in localStorage
- * - Two tables: MAIN + STEFAN
- * - Viewer shows uploaded drawings (angle drawing) and HOLD cover (fallback)
+ * - Two tables: MAIN + STEFAN (desktop)
+ * - Mobile: single table with tabs MAIN/STEFAN
+ * - Viewer shows angle drawing, fallback to HOLD cover (if exactly 1 hold selected)
  * - Admin page: /#/admin  (login admin/admin)
- * - UI simplified: no transitions/animations
  *
- * v1.7
- * - Holds sorted A–Z (old + new)
- * - Search above holds list (MAIN + ADMIN), no dropdown
- *   - click anywhere on search pill focuses input
- * - Admin: hold cover photo upload (shown on main screen when hold selected)
- * - Admin footer: Last modified + AVA Volumes © + app version
+ * v1.8
+ * - Mobile responsive layout (<=900px):
+ *   - 1 column
+ *   - tabs to switch MAIN/STEFAN
+ *   - page padding smaller, scroll enabled
  */
 
-const APP_VERSION = "1.7";
+const APP_VERSION = "1.8";
 
 const DEFAULT_HOLDS = [
   "Anton","Austin","Amon","Asteca","Avalon","Avalon Flat","Avalon SuperFlat",
@@ -65,6 +64,36 @@ function toAngleLabel(n) {
 
 function sortHolds(holds) {
   return [...holds].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+
+/* -------------------- responsive helper -------------------- */
+
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia(query).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+
+    // set once
+    setMatches(mql.matches);
+
+    // modern + fallback
+    if (mql.addEventListener) mql.addEventListener("change", onChange);
+    else mql.addListener(onChange);
+
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener("change", onChange);
+      else mql.removeListener(onChange);
+    };
+  }, [query]);
+
+  return matches;
 }
 
 /* -------------------- STORAGE: migration + sanitize -------------------- */
@@ -132,7 +161,7 @@ function migrateAndSanitize(parsed) {
     angles.push(sa);
   }
 
-  // ✅ hold cover images: keep only existing holds and valid data:image/*
+  // ✅ hold cover images
   const rawHoldImages =
     unwrapped?.holdImages && typeof unwrapped.holdImages === "object" ? unwrapped.holdImages : {};
   const holdImages = {};
@@ -320,6 +349,8 @@ function formatLastModified(ms) {
 
 export default function App() {
   const route = useHashRoute();
+  const isMobile = useMediaQuery("(max-width: 900px)");
+
   const [data, setData] = useState(() => loadState());
   const [selectedHolds, setSelectedHolds] = useState(() => new Set());
   const [activeAngleId, setActiveAngleId] = useState(null);
@@ -328,6 +359,9 @@ export default function App() {
   // ✅ search above holds
   const [holdSearch, setHoldSearch] = useState("");
   const searchRef = useRef(null);
+
+  // ✅ mobile tab
+  const [mobileTab, setMobileTab] = useState("main");
 
   useEffect(() => {
     saveState(data);
@@ -405,35 +439,67 @@ export default function App() {
         setData={setData}
         onExit={() => (window.location.hash = "#/")}
         lastModifiedMs={lastModifiedMs}
+        isMobile={isMobile}
       />
     );
   }
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="page-wrap">
       <style>{`
+        /* print: hide non-print blocks via data-print-hide */
         @media print {
           [data-print-hide] { display: none !important; }
+
           .main-grid {
             display: grid !important;
             grid-template-columns: 1fr 1fr !important;
             gap: 12px !important;
             height: auto !important;
           }
-          .main-grid > :nth-child(1) { display: none !important; }
-          .main-grid > :nth-child(4) { display: none !important; }
-          .main-grid .card { break-inside: avoid; }
+
+          .card { break-inside: avoid; }
           button { all: unset; }
         }
+
         button:focus { outline: none; }
         button:focus-visible { outline: none; }
+
+        /* ✅ Mobile layout */
+        @media (max-width: 900px) {
+          .page-wrap {
+            padding: 12px !important;
+            height: auto !important;
+            overflow: auto !important;
+          }
+          .main-grid {
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+            height: auto !important;
+            width: 100% !important;
+          }
+          .holds-list {
+            max-height: 45vh !important;
+          }
+          .viewer-card {
+            min-height: 320px !important;
+          }
+        }
+
+        /* Admin mobile stack */
+        @media (max-width: 900px) {
+          .admin-grid {
+            grid-template-columns: 1fr !important;
+            height: auto !important;
+            width: 100% !important;
+          }
+        }
       `}</style>
 
       <div style={styles.grid} className="main-grid">
-        {/* Left: holds */}
+        {/* Holds */}
         <Card data-print-hide>
           <div style={styles.cardBody}>
-            {/* ✅ Search (click anywhere focuses input) */}
             <div style={styles.searchWrap}>
               <div
                 style={styles.searchPill}
@@ -456,7 +522,7 @@ export default function App() {
               </div>
             </div>
 
-            <div style={styles.holdsList}>
+            <div style={styles.holdsList} className="holds-list">
               {visibleHolds.map((name) => (
                 <label key={name} style={styles.holdRow}>
                   <input
@@ -507,27 +573,66 @@ export default function App() {
                 clear
               </button>
             </div>
+
+            <div style={{ marginTop: 10, fontSize: 11, color: "#888", lineHeight: 1.2 }}>
+              AVA Volumes © {new Date().getFullYear()} — v{APP_VERSION}
+            </div>
           </div>
         </Card>
 
-        {/* Main table */}
-        <Card>
-          <div style={styles.tableBody}>
-            <div style={styles.tableTitleCenter}>MAIN</div>
-            <AngleTable rows={selectedAngles.main} onPick={setActiveAngleId} />
-          </div>
-        </Card>
+        {/* Tables: desktop = 2 cards, mobile = tabs + 1 card */}
+        {!isMobile ? (
+          <>
+            <Card>
+              <div style={styles.tableBody}>
+                <div style={styles.tableTitleCenter}>MAIN</div>
+                <AngleTable rows={selectedAngles.main} onPick={setActiveAngleId} />
+              </div>
+            </Card>
 
-        {/* Stefan table */}
-        <Card>
-          <div style={styles.tableBody}>
-            <div style={styles.tableTitleCenter}>STEFAN</div>
-            <AngleTable rows={selectedAngles.stefan} onPick={setActiveAngleId} />
-          </div>
-        </Card>
+            <Card>
+              <div style={styles.tableBody}>
+                <div style={styles.tableTitleCenter}>STEFAN</div>
+                <AngleTable rows={selectedAngles.stefan} onPick={setActiveAngleId} />
+              </div>
+            </Card>
+          </>
+        ) : (
+          <Card>
+            <div style={styles.tableBody}>
+              <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setMobileTab("main")}
+                  style={{
+                    ...styles.btnTab,
+                    ...(mobileTab === "main" ? styles.btnTabActive : null),
+                  }}
+                >
+                  MAIN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTab("stefan")}
+                  style={{
+                    ...styles.btnTab,
+                    ...(mobileTab === "stefan" ? styles.btnTabActive : null),
+                  }}
+                >
+                  STEFAN
+                </button>
+              </div>
+
+              <AngleTable
+                rows={mobileTab === "main" ? selectedAngles.main : selectedAngles.stefan}
+                onPick={setActiveAngleId}
+              />
+            </div>
+          </Card>
+        )}
 
         {/* Viewer */}
-        <Card data-print-hide>
+        <Card data-print-hide className="viewer-card">
           <div style={styles.viewerWrap}>
             {viewerSrc ? (
               <img src={viewerSrc} alt="drawing" style={styles.viewerImg} draggable={false} />
@@ -594,7 +699,7 @@ function AngleTable({ rows, onPick }) {
 
 /* ===================== ADMIN ===================== */
 
-function AdminPage({ data, setData, onExit, lastModifiedMs }) {
+function AdminPage({ data, setData, onExit, lastModifiedMs, isMobile }) {
   const [authed, setAuthed] = useState(false);
   const [login, setLogin] = useState("admin");
   const [password, setPassword] = useState("admin");
@@ -608,7 +713,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
   const [editingHoldName, setEditingHoldName] = useState("");
   const [selectedAngleId, setSelectedAngleId] = useState(null);
 
-  // ✅ admin search
   const [adminHoldSearch, setAdminHoldSearch] = useState("");
   const adminSearchRef = useRef(null);
 
@@ -622,7 +726,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
   const uploadTargetIdRef = useRef(null);
   const importDbInputRef = useRef(null);
 
-  // ✅ hold cover upload (per hold)
   const holdCoverInputRef = useRef(null);
   const uploadHoldNameRef = useRef(null);
 
@@ -745,7 +848,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
       .catch(() => {});
   };
 
-  // ✅ Hold cover upload
   const handleHoldCoverUpload = (e) => {
     const file = e.target.files?.[0];
     const holdName = uploadHoldNameRef.current;
@@ -824,7 +926,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
   if (!authed) {
     return (
-      <div style={styles.page}>
+      <div style={styles.page} className="page-wrap">
         <div style={{ ...styles.grid, gridTemplateColumns: "1fr", maxWidth: 400, margin: "0 auto" }}>
           <Card>
             <div style={styles.cardBody}>
@@ -853,18 +955,24 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
   const selectedCover = selectedProduct ? (data?.holdImages?.[selectedProduct] || null) : null;
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="page-wrap">
       <style>{`
         button:focus { outline: none; }
         button:focus-visible { outline: none; }
         button::-moz-focus-inner { border: 0; }
       `}</style>
 
-      <div style={{ ...styles.grid, gridTemplateColumns: "220px 260px 320px 320px" }}>
-        {/* Left: holds list */}
+      <div
+        style={{
+          ...styles.grid,
+          gridTemplateColumns: isMobile ? "1fr" : "220px 260px 320px 320px",
+          height: isMobile ? "auto" : styles.grid.height,
+        }}
+        className="admin-grid"
+      >
+        {/* Left: holds */}
         <Card>
           <div style={styles.cardBody}>
-            {/* ✅ Admin search */}
             <div style={styles.searchWrap}>
               <div
                 style={styles.searchPill}
@@ -893,7 +1001,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                   key={name}
                   type="button"
                   onClick={() => setSelectedProduct(name)}
-                  onMouseDown={(e) => { if (e.shiftKey) e.preventDefault(); }}
                   style={{ ...styles.holdRowBtn, ...(selectedProduct === name ? styles.holdRowBtnActive : null) }}
                 >
                   <span style={styles.holdName}>{name}</span>
@@ -952,7 +1059,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                     <button style={styles.btnX} onClick={() => confirmRemoveHold(selectedProduct)}>×</button>
                   </div>
 
-                  {/* ✅ Hold cover upload */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
                     <div style={{ fontSize: 11, color: "#888" }}>Hold cover</div>
 
@@ -1085,7 +1191,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
   );
 }
 
-/* -------------------- ADMIN ROW: aligned, one line, auto-clear 0 -------------------- */
+/* -------------------- ADMIN ROW -------------------- */
 function AdminAngleRow({ angle, isActive, onSelect, onUpdate, onRemove, onUpload }) {
   const [draft, setDraft] = useState(() => String(angle.value ?? 0));
 
@@ -1286,8 +1392,8 @@ const styles = {
   holdRow: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
-    padding: "6px 0",
+    gap: 10,
+    padding: "10px 0",
     userSelect: "none",
   },
 
@@ -1295,7 +1401,7 @@ const styles = {
     width: "100%",
     border: "1px solid transparent",
     background: "transparent",
-    padding: "6px 8px",
+    padding: "10px 10px",
     display: "flex",
     alignItems: "center",
     gap: 8,
@@ -1306,7 +1412,7 @@ const styles = {
     boxShadow: "none",
     transition: "none",
     WebkitTapHighlightColor: "transparent",
-    borderRadius: 6,
+    borderRadius: 8,
   },
   holdRowBtnActive: {
     background: "#f6f6f6",
@@ -1314,12 +1420,12 @@ const styles = {
   },
 
   checkbox: {
-    width: 14,
-    height: 14,
+    width: 18,
+    height: 18,
     cursor: "pointer",
   },
   holdName: {
-    fontSize: 13,
+    fontSize: 16,
     color: "#1a1a1a",
     lineHeight: 1.3,
   },
@@ -1343,47 +1449,65 @@ const styles = {
   btnGhost: {
     border: "1px solid #ddd",
     background: "#fff",
-    borderRadius: 4,
-    padding: "8px 12px",
+    borderRadius: 8,
+    padding: "10px 12px",
     cursor: "pointer",
-    fontSize: 12,
+    fontSize: 13,
     color: "#1a1a1a",
     transition: "none",
   },
   btnDanger: {
     border: "1px solid #e0e0e0",
     background: "#fff",
-    borderRadius: 4,
-    padding: "8px 12px",
+    borderRadius: 8,
+    padding: "10px 12px",
     cursor: "pointer",
-    fontSize: 12,
+    fontSize: 13,
     color: "#666",
     transition: "none",
   },
   btnPrimary: {
     border: "1px solid #1a1a1a",
     background: "#1a1a1a",
-    borderRadius: 4,
-    padding: "8px 14px",
+    borderRadius: 8,
+    padding: "10px 14px",
     cursor: "pointer",
-    fontSize: 12,
+    fontSize: 13,
     color: "#fff",
     transition: "none",
   },
+
+  // mobile tabs
+  btnTab: {
+    border: "1px solid #ddd",
+    background: "#fff",
+    borderRadius: 999,
+    padding: "8px 14px",
+    cursor: "pointer",
+    fontSize: 12,
+    color: "#1a1a1a",
+    transition: "none",
+  },
+  btnTabActive: {
+    borderColor: "#1a1a1a",
+    background: "#1a1a1a",
+    color: "#fff",
+  },
+
   btnSmallGhost: {
     border: "1px solid #ddd",
     background: "#fff",
-    borderRadius: 4,
-    padding: "6px 10px",
+    borderRadius: 8,
+    padding: "8px 12px",
     cursor: "pointer",
-    fontSize: 11,
+    fontSize: 12,
     color: "#1a1a1a",
     transition: "none",
   },
   btnSmallGhost28: {
     border: "1px solid #ddd",
     background: "#fff",
-    borderRadius: 4,
+    borderRadius: 8,
     padding: "0 10px",
     height: 28,
     cursor: "pointer",
@@ -1398,10 +1522,10 @@ const styles = {
   btnSmallPrimary: {
     border: "1px solid #1a1a1a",
     background: "#1a1a1a",
-    borderRadius: 4,
-    padding: "6px 10px",
+    borderRadius: 8,
+    padding: "8px 12px",
     cursor: "pointer",
-    fontSize: 11,
+    fontSize: 12,
     color: "#fff",
     transition: "none",
   },
@@ -1425,7 +1549,7 @@ const styles = {
   table: {
     display: "flex",
     flexDirection: "column",
-    gap: 4,
+    gap: 8,
     overflow: "auto",
     flex: 1,
     paddingRight: 4,
@@ -1433,12 +1557,12 @@ const styles = {
   },
   tableRow: {
     display: "grid",
-    gridTemplateColumns: "64px 1fr",
+    gridTemplateColumns: "74px 1fr",
     gap: 10,
     alignItems: "center",
     border: "1px solid #eee",
-    borderRadius: 4,
-    padding: "8px 10px",
+    borderRadius: 10,
+    padding: "12px 12px",
     background: "#fff",
     cursor: "pointer",
     textAlign: "left",
@@ -1461,10 +1585,9 @@ const styles = {
     background: "transparent",
     padding: "8px 0",
   },
-
   adminAngleInput: {
     border: "1px solid #ddd",
-    borderRadius: 4,
+    borderRadius: 8,
     height: 28,
     width: 70,
     padding: "0 8px",
@@ -1475,13 +1598,13 @@ const styles = {
   },
 
   angleCell: {
-    fontWeight: 500,
+    fontWeight: 700,
     color: "#1a1a1a",
-    fontSize: 13,
+    fontSize: 16,
   },
   nameCell: {
-    color: "#666",
-    fontSize: 12,
+    color: "#444",
+    fontSize: 14,
   },
   tableEmpty: { height: 8 },
 
@@ -1490,7 +1613,7 @@ const styles = {
     width: "100%",
     height: "100%",
     border: "1px dashed #e0e0e0",
-    borderRadius: 4,
+    borderRadius: 10,
     background: "#fafafa",
     display: "flex",
     alignItems: "center",
@@ -1500,7 +1623,7 @@ const styles = {
     width: "100%",
     height: "100%",
     objectFit: "contain",
-    borderRadius: 4,
+    borderRadius: 10,
     background: "#fff",
   },
 
@@ -1519,9 +1642,9 @@ const styles = {
   },
   input: {
     border: "1px solid #e0e0e0",
-    borderRadius: 4,
-    padding: "8px 10px",
-    fontSize: 12,
+    borderRadius: 8,
+    padding: "10px 12px",
+    fontSize: 13,
     outline: "none",
     background: "#fff",
     transition: "none",
@@ -1529,12 +1652,12 @@ const styles = {
   btnX: {
     border: "1px solid #ddd",
     background: "#fff",
-    borderRadius: 4,
-    width: 28,
-    height: 28,
+    borderRadius: 8,
+    width: 32,
+    height: 32,
     cursor: "pointer",
-    fontSize: 14,
-    lineHeight: "14px",
+    fontSize: 16,
+    lineHeight: "16px",
     color: "#666",
     transition: "none",
     display: "inline-flex",
