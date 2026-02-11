@@ -650,6 +650,70 @@ export default function App() {
             overflow-y: auto !important;
           }
 
+          /* MOBILE FIX START */
+          /* Holds List: compact, align checkbox/text */
+          .holdRow {
+            min-height: 44px;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            border-bottom: 1px solid #f0f0f0; /* subtle separator helps tap targets */
+          }
+          .holdCheckbox {
+            margin: 0 12px 0 0 !important;
+            width: 20px !important;
+            height: 20px !important;
+            flex-shrink: 0;
+          }
+          .holdName {
+             font-size: 16px !important; /* readable size */
+             line-height: 1.2 !important;
+             padding: 8px 0 !important;
+          }
+          
+          /* Footer Actions: one clean row, aligned */
+          .footerRow {
+             display: grid !important;
+             grid-template-columns: 48px 1fr 1fr !important;
+             gap: 8px !important;
+             margin-top: 12px !important;
+             padding-top: 12px !important;
+          }
+          .footerBtn {
+             height: 44px !important;
+             font-size: 15px !important;
+          }
+          .iconBtn {
+             height: 44px !important;
+             width: 100% !important;
+          }
+          
+          /* Headers: fixed height, vertically centered */
+          .tableHeader {
+             min-height: 44px !important;
+             height: 44px !important;
+             margin-bottom: 0 !important;
+             display: flex !important;
+             align-items: center !important;
+             justify-content: center !important; 
+          }
+          .tableTitleCenter {
+             font-size: 13px !important;
+             line-height: 44px !important;
+          }
+          .sortButton {
+             top: 50% !important;
+             transform: translateY(-50%) !important;
+             height: 36px !important;
+             width: 36px !important;
+             right: 0 !important;
+          }
+
+          /* General touch/padding */
+          .cardBody { padding: 12px !important; }
+          .searchWrap { padding-bottom: 8px !important; }
+          /* MOBILE FIX END */
+
           /* Touch targets */
           button, input, [role="button"] {
             min-height: 44px;
@@ -690,27 +754,29 @@ export default function App() {
                             </div>
                         </div>
 
-                        <div style={styles.holdsList}>
+                        <div style={styles.holdsList} className="holdsList">
                             {visibleHolds.map((name) => (
-                                <label key={name} style={styles.holdRow}>
+                                <label key={name} style={styles.holdRow} className="holdRow">
                                     <input
                                         type="checkbox"
                                         checked={selectedHolds.has(name)}
                                         onChange={() => toggleHold(name)}
                                         style={styles.checkbox}
+                                        className="holdCheckbox"
                                     />
-                                    <span style={styles.holdName}>{name}</span>
+                                    <span style={styles.holdName} className="holdName">{name}</span>
                                 </label>
                             ))}
                         </div>
 
-                        <div style={styles.footerRow}>
+                        <div style={styles.footerRow} className="footerRow">
                             <button
                                 type="button"
                                 onClick={() => window.print()}
                                 title="Print MAIN and STEFAN tables"
                                 aria-label="Print"
                                 data-print-hide
+                                className="iconBtn"
                                 style={{
                                     ...styles.btnGhost,
                                     width: 36,
@@ -730,6 +796,7 @@ export default function App() {
                             <button
                                 type="button"
                                 style={{ ...styles.btnGhost, ...styles.footerBtn }}
+                                className="footerBtn"
                                 onClick={() => (window.location.hash = "#/admin")}
                             >
                                 admin
@@ -738,6 +805,7 @@ export default function App() {
                             <button
                                 type="button"
                                 style={{ ...styles.btnDanger, ...styles.footerBtn }}
+                                className="footerBtn"
                                 onClick={clearSelection}
                             >
                                 clear
@@ -749,13 +817,14 @@ export default function App() {
                 {/* Main table */}
                 <Card style={styles.card}>
                     <div style={styles.tableBody}>
-                        <div style={styles.tableHeader} className="print-header">
-                            <div style={styles.tableTitleCenter}>MAIN</div>
+                        <div style={styles.tableHeader} className="print-header tableHeader">
+                            <div style={styles.tableTitleCenter} className="tableTitleCenter">MAIN</div>
                             <button
                                 type="button"
                                 onClick={cycleSortMain}
                                 onMouseDown={(e) => e.preventDefault()}
                                 style={styles.sortButton}
+                                className="sortButton"
                                 title="Sort by angle"
                                 aria-label="Sort MAIN table"
                                 data-print-hide
@@ -770,13 +839,14 @@ export default function App() {
                 {/* Stefan table */}
                 <Card style={styles.card}>
                     <div style={styles.tableBody}>
-                        <div style={styles.tableHeader} className="print-header">
-                            <div style={styles.tableTitleCenter}>STEFAN</div>
+                        <div style={styles.tableHeader} className="print-header tableHeader">
+                            <div style={styles.tableTitleCenter} className="tableTitleCenter">STEFAN</div>
                             <button
                                 type="button"
                                 onClick={cycleSortStefan}
                                 onMouseDown={(e) => e.preventDefault()}
                                 style={styles.sortButton}
+                                className="sortButton"
                                 title="Sort by angle"
                                 aria-label="Sort STEFAN table"
                                 data-print-hide
