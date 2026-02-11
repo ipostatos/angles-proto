@@ -1762,8 +1762,8 @@ const getStyles = (theme) => ({
     holdRow: {
         display: "flex",
         alignItems: "center",
-        gap: 8,
-        padding: "6px 0",
+        gap: 6,
+        padding: "2px 0", /* Reduced from "6px 0" */
         userSelect: "none",
     },
 
@@ -1934,11 +1934,11 @@ const getStyles = (theme) => ({
     tableRow: {
         display: "grid",
         gridTemplateColumns: "64px 1fr",
-        gap: 10,
+        gap: 4, /* Reduced from 10 */
         alignItems: "center",
         border: `1px solid ${theme.colors.borderLight}`,
         borderRadius: 4,
-        padding: "8px 10px",
+        padding: "3px 6px", /* Reduced from "8px 10px" */
         background: theme.colors.cardBg,
         cursor: "pointer",
         textAlign: "left",
@@ -1958,8 +1958,8 @@ const getStyles = (theme) => ({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 10,
-        padding: "8px 0",
+        gap: 6, /* Reduced from 10 */
+        padding: "3px 0", /* Reduced from "8px 0" */
         cursor: "pointer",
         borderBottom: `1px solid ${theme.colors.activeBg}`,
     },
