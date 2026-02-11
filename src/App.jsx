@@ -602,24 +602,63 @@ export default function App() {
           }
         }
 
+        /* MOBILE ADAPTATION START */
         @media screen and (max-width: 900px) {
-          .main-grid {
-            grid-template-columns: 1fr !important;
-            grid-template-rows: auto auto auto auto !important;
+          html, body, #root {
             height: auto !important;
-            min-height: calc(100vh - 48px);
+            min-height: 100vh !important;
+            overflow: visible !important;
+            display: block !important;
+            padding: 0 !important; /* Remove root padding from App.css */
+            max-width: 100% !important; /* Override max-width constraint */
           }
-          .main-grid > :nth-child(1),
-          .main-grid > :nth-child(2),
-          .main-grid > :nth-child(3),
-          .main-grid > :nth-child(4) {
-            grid-column: 1 !important;
+          .app-page {
+            height: auto !important;
+            min-height: 100vh !important;
+            overflow: visible !important;
+            padding: 12px !important;
+          }
+
+          .main-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            height: auto !important;
+            min-height: 0 !important;
+            gap: 16px !important;
+          }
+          
+          .main-grid > * {
+            grid-column: auto !important;
             grid-row: auto !important;
+            width: 100% !important;
           }
-          .main-grid .card {
-            min-height: 250px;
+
+          .card {
+            height: auto !important;
+            min-height: 0 !important;
+            flex: none !important;
+            overflow: visible !important;
+            padding: 0 !important; /* Remove card padding from App.css to use cardBody padding */
           }
+          
+          .holdsList {
+             max-height: 30vh !important;
+          }
+          
+          .table {
+            max-height: 40vh !important;
+            overflow-y: auto !important;
+          }
+
+          /* Touch targets */
+          button, input, [role="button"] {
+            min-height: 44px;
+            touch-action: manipulation;
+          }
+          
+          input { font-size: 16px !important; }
         }
+        /* MOBILE ADAPTATION END */
         
         button:focus { outline: none; }
         button:focus-visible { outline: none; }
@@ -1177,25 +1216,62 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
           }
         }
 
+        /* MOBILE ADAPTATION START */
         @media (max-width: 900px) {
+          html, body, #root {
+            height: auto !important;
+            min-height: 100vh !important;
+            overflow: visible !important;
+            display: block !important;
+          }
+
           .admin-page-wrapper {
             height: auto !important;
-            overflow: auto !important;
+            min-height: 100vh !important;
+            overflow: visible !important;
+            padding: 12px !important;
           }
+          
           .admin-grid-container {
+            display: flex !important;
+            flex-direction: column !important;
             height: auto !important;
-            min-height: calc(100vh - 48px);
-            grid-template-columns: 1fr !important;
-            grid-template-rows: auto !important;
+            min-height: 0 !important;
+            gap: 16px !important;
           }
-          .admin-grid-container > :nth-child(1),
-          .admin-grid-container > :nth-child(2),
-          .admin-grid-container > :nth-child(3),
-          .admin-grid-container > :nth-child(4) {
-            grid-column: 1 !important;
+
+          .admin-grid-container > * {
+            grid-column: auto !important;
             grid-row: auto !important;
+            width: 100% !important;
+          }
+          
+          .card {
+            height: auto !important;
+            min-height: 0 !important;
+          }
+
+          .holdsList {
+            max-height: 30vh !important;
+          }
+          
+          .table {
+            max-height: 40vh !important;
+            overflow-y: auto !important;
+          }
+          
+          input, button {
+            min-height: 44px;
+          }
+          input {
+            font-size: 16px !important;
+          }
+          
+          .adminAngleRow {
+            padding: 10px 0 !important;
           }
         }
+        /* MOBILE ADAPTATION END */
         
         button:focus { outline: none; }
         button:focus-visible { outline: none; }
