@@ -653,8 +653,8 @@ export default function App() {
           /* MOBILE FIX START */
           /* Holds List: compact, align checkbox/text */
           .holdRow {
-            min-height: 44px;
-            padding: 0 !important;
+            min-height: 48px;
+            padding: 4px 0 !important;
             display: flex !important;
             align-items: center !important;
             border-bottom: 1px solid #f0f0f0; /* subtle separator helps tap targets */
@@ -667,8 +667,8 @@ export default function App() {
           }
           .holdName {
              font-size: 16px !important; /* readable size */
-             line-height: 1.2 !important;
-             padding: 8px 0 !important;
+             line-height: 1.5 !important;
+             padding: 0 !important;
           }
           
           /* Footer Actions: one clean row, aligned */
@@ -688,6 +688,24 @@ export default function App() {
              width: 100% !important;
           }
           
+          /* Search Bar: prominent and touch-friendly */
+          .searchPill {
+             height: 44px !important;
+             border: 1px solid #e0e0e0 !important;
+             background: #fff !important;
+             margin-bottom: 8px !important;
+             display: flex !important;
+             align-items: center !important;
+             transition: border-color 0.2s;
+          }
+          .searchPill:focus-within {
+             border-color: #bbb !important;
+          }
+          .searchInput {
+             font-size: 16px !important;
+             height: 100% !important;
+          }
+
           /* Headers: fixed height, vertically centered */
           .tableHeader {
              min-height: 44px !important;
@@ -701,17 +719,23 @@ export default function App() {
              font-size: 13px !important;
              line-height: 44px !important;
           }
+          /* Sort Button: smaller (approx half of previous 36px => ~20-24px) */
           .sortButton {
              top: 50% !important;
              transform: translateY(-50%) !important;
-             height: 36px !important;
-             width: 36px !important;
+             height: 24px !important;
+             width: 24px !important;
              right: 0 !important;
+             border: 1px solid #eee !important; /* Visual boundary for small button */
+          }
+          .sortButton svg {
+             width: 10px !important;
+             height: 10px !important;
           }
 
           /* General touch/padding */
           .cardBody { padding: 12px !important; }
-          .searchWrap { padding-bottom: 8px !important; }
+          .searchWrap { padding-bottom: 4px !important; }
           /* MOBILE FIX END */
 
           /* Touch targets */
