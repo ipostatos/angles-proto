@@ -789,7 +789,6 @@ export default function App() {
              right: 0 !important;
              transform: none !important; /* Remove translateY constraint */
              border: none !important;
-             border-left: 1px solid #f0f0f0 !important;
              border-radius: 0 4px 4px 0 !important;
              background: transparent !important;
           }
