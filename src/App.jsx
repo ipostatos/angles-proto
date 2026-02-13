@@ -747,6 +747,58 @@ export default function App() {
           input { font-size: 16px !important; }
         }
         /* MOBILE ADAPTATION END */
+
+                /* MOBILE ULTRA COMPACT START */
+        @media screen and (max-width: 640px) {
+          /* Search input field: strict 34px */
+          .searchPill {
+             height: 34px !important;
+             min-height: 34px !important;
+             margin-bottom: 4px !important;
+             padding: 0 8px !important;
+          }
+          .searchInput {
+             line-height: 34px !important;
+             height: 34px !important;
+             font-size: 14px !important;
+          }
+          .searchIconWrap svg {
+             width: 14px !important;
+             height: 14px !important;
+          }
+
+          /* MAIN and STEFAN section header: strict 34px */
+          .tableHeader {
+             height: 34px !important;
+             min-height: 34px !important;
+             margin-bottom: 0 !important;
+             padding-right: 34px !important; /* Make room for the button */
+             position: relative !important;
+          }
+          .tableTitleCenter {
+             line-height: 34px !important;
+             font-size: 13px !important;
+             letter-spacing: 0.5px !important;
+          }
+
+          /* MAIN and STEFAN header buttons: full height 34px, no floating */
+          .sortButton {
+             height: 34px !important;
+             width: 34px !important;
+             top: 0 !important;
+             right: 0 !important;
+             transform: none !important; /* Remove translateY constraint */
+             border: none !important;
+             border-left: 1px solid #f0f0f0 !important;
+             border-radius: 0 4px 4px 0 !important;
+             background: transparent !important;
+          }
+          .sortButton svg {
+             width: 12px !important;
+             height: 12px !important;
+          }
+        }
+        /* MOBILE ULTRA COMPACT END */
         
         button:focus { outline: none; }
         button:focus-visible { outline: none; }
