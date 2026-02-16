@@ -416,6 +416,9 @@ export default function App() {
     const [zoomedImage, setZoomedImage] = useState(null);
     const [lastModifiedMs, setLastModifiedMs] = useState(() => loadLastModified());
 
+    // Print mode: 'all' | 'main' | 'stefan'
+    const [printMode, setPrintMode] = useState("all");
+
     const [mainSort, setMainSort] = useState("asc");
     const [stefanSort, setStefanSort] = useState("asc");
 
@@ -517,7 +520,7 @@ export default function App() {
     }
 
     return (
-        <div style={styles.page} className="app-page">
+        <div style={styles.page} className={`app-page print-mode-${printMode}`}>
             <style>{`
         @media print {
           html, body, .app-page {
@@ -542,9 +545,22 @@ export default function App() {
             min-width: 0 !important;
           }
           .main-grid > :nth-child(1) { display: none !important; }
+          .main-grid > :nth-child(4) { display: none !important; }
+
+          /* DEFAULT (ALL): 2 columns */
           .main-grid > :nth-child(2) { display: block !important; grid-column: 1 !important; grid-row: 1 !important; }
           .main-grid > :nth-child(3) { display: block !important; grid-column: 2 !important; grid-row: 1 !important; }
-          .main-grid > :nth-child(4) { display: none !important; }
+
+          /* MODE: MAIN ONLY */
+          .print-mode-main .main-grid { grid-template-columns: 1fr !important; }
+          .print-mode-main .main-grid > :nth-child(2) { grid-column: 1 / -1 !important; width: 100% !important; }
+          .print-mode-main .main-grid > :nth-child(3) { display: none !important; }
+
+          /* MODE: STEFAN ONLY */
+          .print-mode-stefan .main-grid { grid-template-columns: 1fr !important; }
+          .print-mode-stefan .main-grid > :nth-child(3) { grid-column: 1 / -1 !important; width: 100% !important; }
+          .print-mode-stefan .main-grid > :nth-child(2) { display: none !important; }
+
           .main-grid .card { 
             break-inside: auto !important;
             border: none !important;
@@ -661,19 +677,34 @@ export default function App() {
           
           /* Footer Actions: one clean row, aligned */
           .footerRow {
-             display: grid !important;
-             grid-template-columns: 48px 1fr 1fr !important;
+             display: flex !important;
+             flex-wrap: nowrap !important;
              gap: 8px !important;
              margin-top: 12px !important;
              padding-top: 12px !important;
+             align-items: center !important;
           }
           .footerBtn {
              height: 44px !important;
              font-size: 15px !important;
+             flex: 1 1 auto !important;
+             min-width: 0 !important;
           }
           .iconBtn {
              height: 44px !important;
-             width: 100% !important;
+             width: 44px !important;
+             flex: 0 0 44px !important;
+             justify-content: center !important;
+             display: flex !important;
+             padding: 0 !important;
+          }
+          .printSelect {
+             height: 44px !important;
+             flex: 0 0 80px !important;
+             min-width: 0 !important;
+             font-size: 15px !important;
+             margin-bottom: 0 !important;
+             margin-right: 0 !important;
           }
           
           /* Search Bar: prominent and touch-friendly */
@@ -833,6 +864,29 @@ export default function App() {
                         </div>
 
                         <div style={styles.footerRow} className="footerRow">
+                            <select
+                                value={printMode}
+                                onChange={(e) => setPrintMode(e.target.value)}
+                                className="printSelect"
+                                style={{
+                                    ...styles.input,
+                                    height: 36,
+                                    padding: "0 8px",
+                                    fontSize: 13,
+                                    width: "auto",
+                                    minWidth: 100,
+                                    flex: "1 1 auto",
+                                    marginRight: 0,
+                                    cursor: "pointer"
+                                }}
+                                title="Select print mode"
+                                data-print-hide
+                            >
+                                <option value="all">ALL</option>
+                                <option value="main">MAIN</option>
+                                <option value="stefan">STEFAN</option>
+                            </select>
+
                             <button
                                 type="button"
                                 onClick={() => window.print()}
@@ -1936,6 +1990,7 @@ const getStyles = (theme) => ({
 
     footerRow: {
         display: "flex",
+        flexWrap: "wrap",
         gap: 8,
         alignItems: "center",
         paddingTop: 16,
@@ -1944,7 +1999,7 @@ const getStyles = (theme) => ({
     },
     footerBtn: {
         flex: 1,
-        minWidth: 0,
+        minWidth: 70,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
