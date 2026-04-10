@@ -523,63 +523,102 @@ export default function App() {
         <div style={styles.page} className={`app-page print-mode-${printMode}`}>
             <style>{`
         @media print {
-          html, body, .app-page {
+          html, body, #root, .app-page {
             height: auto !important;
             min-height: 0 !important;
+            max-height: none !important;
             overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           [data-print-hide] { display: none !important; }
           .main-grid {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
-            grid-template-rows: auto !important;
-            gap: 2px !important;
-            height: auto !important;
-            padding: 0 !important;
+            display: block !important;
             width: 100% !important;
-            max-width: 100% !important;
+            padding: 0 !important;
             margin: 0 !important;
-            align-items: start !important;
+            height: auto !important;
           }
-          .main-grid > * {
-            min-width: 0 !important;
+          .main-grid::after {
+            content: "";
+            display: table;
+            clear: both;
           }
-          .main-grid > :nth-child(1) { display: none !important; }
-          .main-grid > :nth-child(4) { display: none !important; }
-
-          /* DEFAULT (ALL): 2 columns */
-          .main-grid > :nth-child(2) { display: block !important; grid-column: 1 !important; grid-row: 1 !important; }
-          .main-grid > :nth-child(3) { display: block !important; grid-column: 2 !important; grid-row: 1 !important; }
-
-          /* MODE: MAIN ONLY */
-          .print-mode-main .main-grid { grid-template-columns: 1fr !important; }
-          .print-mode-main .main-grid > :nth-child(2) { grid-column: 1 / -1 !important; width: 100% !important; }
-          .print-mode-main .main-grid > :nth-child(3) { display: none !important; }
-
-          /* MODE: STEFAN ONLY */
-          .print-mode-stefan .main-grid { grid-template-columns: 1fr !important; }
-          .print-mode-stefan .main-grid > :nth-child(3) { grid-column: 1 / -1 !important; width: 100% !important; }
-          .print-mode-stefan .main-grid > :nth-child(2) { display: none !important; }
-
-          .main-grid .card { 
-            break-inside: auto !important;
+          .main-grid > :nth-child(1), .main-grid > :nth-child(4) { display: none !important; }
+          
+          .main-grid > :nth-child(2), .main-grid > :nth-child(3) {
+            display: block !important;
+            box-sizing: border-box !important;
+            overflow: visible !important;
             border: none !important;
             box-shadow: none !important;
-            overflow: visible !important;
-            display: block !important;
+            float: left !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
+
+          /* DEFAULT (ALL): 2 columns float */
+          .main-grid > :nth-child(2) { width: 48% !important; margin-right: 3% !important; }
+          .main-grid > :nth-child(3) { width: 48% !important; margin-right: 0 !important; }
+          
+          /* Disable container columns in ALL mode because the page itself has 2 float columns */
+          .print-mode-all .print-table-container { column-count: 1 !important; display: block !important; margin: 0 !important; padding: 0 !important; }
+
+          /* MODE: MAIN ONLY */
+          .print-mode-main .main-grid > :nth-child(2) { width: 100% !important; margin-right: 0 !important; }
+          .print-mode-main .main-grid > :nth-child(3) { display: none !important; }
+          
+          /* MODE: STEFAN ONLY */
+          .print-mode-stefan .main-grid > :nth-child(3) { width: 100% !important; float: left !important; margin-right: 0 !important; }
+          .print-mode-stefan .main-grid > :nth-child(2) { display: none !important; }
+
+          /* Enable internal container columns in single modes */
+          .print-mode-main .print-table-container,
+          .print-mode-stefan .print-table-container {
+            display: block !important;
+            column-width: 160px !important;
+            column-count: auto !important;
+            column-gap: 20px !important;
+            column-fill: auto !important;
+            overflow: visible !important;
+            gap: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
           .print-table-container {
             display: block !important;
             overflow: visible !important;
             gap: 0 !important;
           }
+          .card { overflow: visible !important; }
           .print-table-row {
             border: none !important;
             padding: 0 !important;
             background: transparent !important;
-            margin-bottom: 2px !important;
+            margin-bottom: 6px !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            display: grid !important;
+            grid-template-columns: 60px 1fr !important;
+            column-gap: 12px !important;
+            align-items: baseline !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+          }
+          .print-table-row span {
+            font-size: 18px !important;
+            line-height: 1.2 !important;
+          }
+          .print-table-row span:first-child {
+            text-align: right !important;
+            font-variant-numeric: tabular-nums !important;
+          }
+          .tableTitleCenter {
+            font-size: 24px !important;
+            margin-bottom: 16px !important;
           }
           .print-header {
             margin-bottom: 2px !important;
@@ -587,8 +626,13 @@ export default function App() {
           button { all: unset; }
           
           /* Ensure hidden elements stay hidden (override earlier display: block) */
-          [data-print-hide], .main-grid > :nth-child(1), .main-grid > :nth-child(4) {
+          [data-print-hide], .main-grid > :nth-child(1), .main-grid > :nth-child(4), .viewerWrap, .sortButton {
              display: none !important;
+             visibility: hidden !important;
+             opacity: 0 !important;
+             height: 0 !important;
+             width: 0 !important;
+             overflow: hidden !important;
           }
         }
         
@@ -874,7 +918,7 @@ export default function App() {
                                     padding: "0 8px",
                                     fontSize: 13,
                                     width: "auto",
-                                    minWidth: 100,
+                                    minWidth: 80,
                                     flex: "1 1 auto",
                                     marginRight: 0,
                                     cursor: "pointer"
