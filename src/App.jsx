@@ -1016,14 +1016,16 @@ export default function App() {
              margin-right: 0 !important;
           }
           
-          /* Search Bar: fixed at top */
+          /* Search Bar: fixed at top with frosted glass */
           .searchWrap {
              position: fixed !important;
              top: 0 !important;
              left: 0 !important;
              right: 0 !important;
              z-index: 50 !important;
-             background: #f5f7fa !important;
+             background: rgba(245, 247, 250, 0.72) !important;
+             backdrop-filter: blur(10px) !important;
+             -webkit-backdrop-filter: blur(10px) !important;
              padding: 8px 12px 6px !important;
           }
           /* Offset the card body so content starts below the fixed search */
@@ -2218,14 +2220,16 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             padding: 10px 0 !important;
           }
 
-          /* Search bar: fixed at top in admin mobile */
+          /* Search bar: fixed at top with frosted glass in admin mobile */
           .adminSearchWrap {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
             z-index: 50 !important;
-            background: #f5f7fa !important;
+            background: rgba(245, 247, 250, 0.72) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
             padding: 8px 12px 6px !important;
           }
           .admin-grid-container > :first-child .cardBody {
