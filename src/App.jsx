@@ -107,6 +107,12 @@ function sanitizeHoldList(holds) {
     return sortHolds(unique);
 }
 
+// Only accept raster image data URLs. Rejects SVG (data:image/svg+xml) and any
+// non-image string to avoid storing/rendering untrusted markup from JSON import.
+function isSafeRasterDataUrl(s) {
+    return typeof s === "string" && /^data:image\/(png|jpe?g|webp|gif);/i.test(s);
+}
+
 function sanitizeAngle(a, holdsSet) {
     const hold = normalizeHoldNameSafe(a?.hold);
     const saw = a?.saw === "stefan" ? "stefan" : "main";
@@ -117,8 +123,7 @@ function sanitizeAngle(a, holdsSet) {
 
     const id = typeof a?.id === "string" && a.id.trim() ? a.id : cryptoRandomId();
 
-    const drawing =
-        typeof a?.drawing === "string" && a.drawing.startsWith("data:image/") ? a.drawing : undefined;
+    const drawing = isSafeRasterDataUrl(a?.drawing) ? a.drawing : undefined;
 
     if (!hold || !holdsSet.has(hold)) return null;
 
@@ -156,7 +161,7 @@ function migrateAndSanitize(parsed) {
     const holdImages = {};
     for (const h of holds) {
         const v = rawHoldImages[h];
-        if (typeof v === "string" && v.startsWith("data:image/")) {
+        if (isSafeRasterDataUrl(v)) {
             holdImages[h] = v;
         }
     }
@@ -210,10 +215,16 @@ function loadState() {
     } catch {
         // Data is unreadable. Preserve the original bytes for recovery instead of
         // silently overwriting them, and DON'T touch LS_KEY here so the user can
-        // still export/inspect the corrupt payload.
+        // still export/inspect the corrupt payload. Keep only the newest copy.
         try {
             const raw = localStorage.getItem(LS_KEY);
-            if (raw) localStorage.setItem(`${LS_CORRUPT_KEY}_${Date.now()}`, raw);
+            if (raw) {
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                    const k = localStorage.key(i);
+                    if (k && k.startsWith(`${LS_CORRUPT_KEY}_`)) localStorage.removeItem(k);
+                }
+                localStorage.setItem(`${LS_CORRUPT_KEY}_${Date.now()}`, raw);
+            }
         } catch { }
         didRecoverFromCorrupt = true;
         return migrateAndSanitize({
@@ -443,6 +454,20 @@ async function sha256Hex(text) {
     return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// First-run admin password policy: min length + reject obvious weak choices.
+// NOTE: client-side hashing is not a real security boundary (see SECURITY_AUDIT.md);
+// this only discourages trivial defaults.
+const WEAK_PASSWORDS = new Set([
+    "admin", "password", "12345678", "11111111", "00000000",
+    "qwerty", "qwertyui", "admin123", "password1", "letmein",
+]);
+function isStrongAdminPassword(pw) {
+    const p = String(pw ?? "");
+    if (p.length < 8) return false;
+    if (WEAK_PASSWORDS.has(p.toLowerCase())) return false;
+    return true;
+}
+
 /* ===================== SORT ICON ===================== */
 function SortIcon({ direction }) {
     if (direction === "asc") {
@@ -470,7 +495,7 @@ function SortIcon({ direction }) {
 
 const theme = {
     colors: {
-        background: '#fafafa',
+        background: '#f5f7fa',
         cardBg: '#ffffff',
         textPrimary: '#1a1a1a',
         textSecondary: '#666666',
@@ -492,7 +517,7 @@ const theme = {
         buttonGhostBorder: '#dddddd',
         viewerEmptyBg: '#fafafa',
         viewerEmptyBorder: '#e0e0e0',
-        adminPageBg: '#fafafa',
+        adminPageBg: '#f5f7fa',
     },
 };
 
@@ -569,17 +594,25 @@ export default function App() {
 
         try {
             if (!storedHash) {
-                if (loginUser === "admin" && loginPass === "admin") {
-                    let stored = false;
-                    try {
-                        localStorage.setItem(ADMIN_HASH_KEY, await sha256Hex(loginPass));
-                        stored = true;
-                    } catch {
-                        toast.error("Could not save password. Check browser storage settings.");
-                    }
-                    if (stored) finish();
-                } else {
-                    toast("First login: use admin / admin once to set your password.");
+                // First-run setup: operator chooses a strong password (no built-in default).
+                if (loginUser !== "admin") {
+                    toast.error("Use username \"admin\" to set up.");
+                    return;
+                }
+                if (!isStrongAdminPassword(loginPass)) {
+                    toast.error("Set a password with at least 8 characters (not a common word).");
+                    return;
+                }
+                let stored = false;
+                try {
+                    localStorage.setItem(ADMIN_HASH_KEY, await sha256Hex(loginPass));
+                    stored = true;
+                } catch {
+                    toast.error("Could not save password. Check browser storage settings.");
+                }
+                if (stored) {
+                    toast.success("Admin password set.");
+                    finish();
                 }
                 return;
             }
@@ -1075,6 +1108,8 @@ export default function App() {
             width: 100vw !important;
             height: 100vh !important;
             overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
           }
           .main-grid {
             display: grid !important;
@@ -1082,7 +1117,8 @@ export default function App() {
             grid-template-rows: 1fr !important;
             width: 100% !important;
             max-width: 1500px !important;
-            height: calc(100vh - clamp(24px, 6vw, 48px)) !important;
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
             overflow: hidden !important;
             margin: 0 auto !important;
           }
@@ -1121,6 +1157,11 @@ export default function App() {
         }
         button::-moz-focus-inner { border: 0; }
       `}</style>
+
+            <header style={styles.appHeader} data-print-hide>
+                <h1 style={styles.appHeaderTitle}>Angles</h1>
+                <p style={styles.appHeaderSubtitle}>Saw angle reference for blades — pick products to compare MAIN and STEFAN cuts.</p>
+            </header>
 
             <div style={styles.grid} className="main-grid">
                 {/* Left: holds */}
@@ -1680,7 +1721,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
     const [newHoldName, setNewHoldName] = useState("");
     const [editingHold, setEditingHold] = useState(null);
     const [editingHoldName, setEditingHoldName] = useState("");
-    const [selectedAngleId, setSelectedAngleId] = useState(null);
     const [zoomedImage, setZoomedImage] = useState(null);
     const [confirmState, setConfirmState] = useState(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -1767,10 +1807,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
     useEffect(() => {
         if (selectedProduct && !holdsSafe.includes(selectedProduct)) setSelectedProduct(null);
     }, [holdsSafe, selectedProduct]);
-
-    useEffect(() => {
-        if (selectedAngleId && !anglesSafe.some((a) => a.id === selectedAngleId)) setSelectedAngleId(null);
-    }, [anglesSafe, selectedAngleId]);
 
     const addHold = useCallback(() => {
         const name = normalizeHoldName(newHoldName);
@@ -1864,8 +1900,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             ...prev,
             angles: (prev.angles || []).filter((a) => a.id !== id),
         }));
-        if (selectedAngleId === id) setSelectedAngleId(null);
-    }, [askConfirm, selectedAngleId, updateAdminData]);
+    }, [askConfirm, updateAdminData]);
 
     const handleDrawingUpload = useCallback((e) => {
         const file = e.target.files?.[0];
@@ -1959,7 +1994,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
             updateAdminData(safe);
             setSelectedProduct(null);
-            setSelectedAngleId(null);
             toast.success("Database imported. Press SAVE to keep changes.");
         } catch (err) {
             console.warn(err);
@@ -2302,7 +2336,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                         <AdminAngleRow styles={styles}
                                             key={a.id}
                                             angle={a}
-                                            onSelect={() => setSelectedAngleId(a.id)}
                                             onUpdate={(patch) => updateAngle(a.id, patch)}
                                             onRemove={() => removeAngle(a.id)}
                                             onUpload={() => {
@@ -2337,7 +2370,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                         <AdminAngleRow styles={styles}
                                             key={a.id}
                                             angle={a}
-                                            onSelect={() => setSelectedAngleId(a.id)}
                                             onUpdate={(patch) => updateAngle(a.id, patch)}
                                             onRemove={() => removeAngle(a.id)}
                                             onUpload={() => {
@@ -2411,7 +2443,7 @@ function ConfirmDialog({ message, styles, onConfirm, onCancel }) {
 }
 
 /* -------------------- ADMIN ROW: only angle value, no hold name -------------------- */
-function AdminAngleRow({ angle, onSelect, onUpdate, onRemove, onUpload, onRemoveImage, onZoomImage, styles }) {
+function AdminAngleRow({ angle, onUpdate, onRemove, onUpload, onRemoveImage, onZoomImage, styles }) {
     const [draft, setDraft] = useState(() => String(angle.value ?? 0));
 
     useEffect(() => {
@@ -2454,16 +2486,10 @@ function AdminAngleRow({ angle, onSelect, onUpdate, onRemove, onUpload, onRemove
     };
 
     return (
-        <div
-            style={styles.adminAngleRow}
-            onClick={onSelect}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === "Enter" && onSelect()}
-        >
+        <div style={styles.adminAngleRow}>
             <span style={styles.adminAngleLabel}>{toAngleLabel(angle.value)}</span>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flex: "0 0 auto" }}>
                 <input
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
@@ -2536,6 +2562,31 @@ const getStyles = (theme) => ({
         background: theme.colors.background,
         padding: "clamp(12px, 3vw, 24px)",
         boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        gap: "clamp(10px, 1.6vw, 16px)",
+    },
+    appHeader: {
+        width: "100%",
+        maxWidth: "1500px",
+        margin: "0 auto",
+        flex: "0 0 auto",
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+    },
+    appHeaderTitle: {
+        fontSize: "clamp(16px, 2.4vw, 20px)",
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        color: theme.colors.textPrimary,
+        textTransform: "uppercase",
+        margin: 0,
+    },
+    appHeaderSubtitle: {
+        fontSize: "clamp(11px, 1.6vw, 13px)",
+        color: theme.colors.textSecondary,
+        margin: 0,
     },
     zoomOverlay: {
         position: "fixed",
@@ -2652,7 +2703,8 @@ const getStyles = (theme) => ({
         gridTemplateColumns: "220px 260px 260px 1fr",
         gap: "clamp(12px, 2vw, 20px)",
         alignItems: "stretch",
-        height: "calc(100vh - clamp(24px, 6vw, 48px))",
+        flex: "1 1 auto",
+        minHeight: 0,
         width: "100%",
         maxWidth: "1500px",
         margin: "0 auto",
