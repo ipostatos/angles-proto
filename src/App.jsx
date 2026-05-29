@@ -997,45 +997,43 @@ export default function App() {
              margin-right: 0 !important;
           }
           
-          /* Search Bar: prominent and touch-friendly */
+          /* Search Bar: compact */
           .searchPill {
-             height: 44px !important;
+             height: 34px !important;
+             min-height: 34px !important;
              border: 1px solid #e0e0e0 !important;
              background: #fff !important;
-             margin-bottom: 8px !important;
+             margin-bottom: 6px !important;
              display: flex !important;
              align-items: center !important;
-             transition: border-color 0.2s;
-          }
-          .searchPill:focus-within {
-             border-color: #bbb !important;
+             padding: 0 10px !important;
           }
           .searchInput {
-             font-size: 16px !important;
-             height: 100% !important;
+             font-size: 14px !important;
+             height: 34px !important;
+             min-height: 0 !important;
           }
 
-          /* Headers: fixed height, vertically centered */
+          /* MAIN / STEFAN headers: compact */
           .tableHeader {
-             min-height: 44px !important;
-             height: 44px !important;
+             min-height: 32px !important;
+             height: 32px !important;
              margin-bottom: 0 !important;
              display: flex !important;
              align-items: center !important;
-             justify-content: center !important; 
+             justify-content: center !important;
           }
           .tableTitleCenter {
-             font-size: 13px !important;
-             line-height: 44px !important;
+             font-size: 11px !important;
+             line-height: 32px !important;
           }
-          /* Sort Button: smaller (approx half of previous 36px => ~20-24px) */
           .sortButton {
              top: 50% !important;
              transform: translateY(-50%) !important;
-             height: 24px !important;
-             width: 24px !important;
+             height: 22px !important;
+             width: 22px !important;
              right: 0 !important;
-             border: 1px solid #eee !important; /* Visual boundary for small button */
+             border: 1px solid #eee !important;
           }
           .sortButton svg {
              width: 10px !important;
