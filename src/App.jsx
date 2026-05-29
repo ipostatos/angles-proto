@@ -1158,11 +1158,6 @@ export default function App() {
         button::-moz-focus-inner { border: 0; }
       `}</style>
 
-            <header style={styles.appHeader} data-print-hide>
-                <h1 style={styles.appHeaderTitle}>Angles</h1>
-                <p style={styles.appHeaderSubtitle}>Saw angle reference for blades — pick products to compare MAIN and STEFAN cuts.</p>
-            </header>
-
             <div style={styles.grid} className="main-grid">
                 {/* Left: holds */}
                 <Card data-print-hide style={styles.card}>
@@ -2564,7 +2559,6 @@ const getStyles = (theme) => ({
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        gap: "clamp(10px, 1.6vw, 16px)",
     },
     appHeader: {
         width: "100%",
