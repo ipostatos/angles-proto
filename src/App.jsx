@@ -2101,6 +2101,18 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             padding: 10px 0 !important;
           }
 
+          /* Search pill compact on admin mobile */
+          .admin-page-wrapper .searchPill {
+            height: 34px !important;
+            min-height: 34px !important;
+            padding: 0 10px !important;
+          }
+          .admin-page-wrapper .searchPill input {
+            min-height: 0 !important;
+            height: 34px !important;
+            font-size: 14px !important;
+          }
+
           .adminFooter {
             position: fixed !important;
             bottom: 0 !important;
@@ -2111,6 +2123,16 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             border-top: 1px solid #e8e8e8 !important;
             padding: 10px 12px env(safe-area-inset-bottom, 0px) !important;
             gap: 8px !important;
+          }
+          /* Remove separator line from footerRow inside adminFooter */
+          .adminFooter .footerRow {
+            border-top: none !important;
+            margin-top: 0 !important;
+            padding-top: 0 !important;
+          }
+          .adminFooterMeta {
+            font-size: 9px !important;
+            line-height: 1.2 !important;
           }
           .admin-page-wrapper {
             padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px)) !important;
@@ -2248,15 +2270,15 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                 <button style={{ ...styles.btnGhost, flex: 1 }} onClick={triggerImportDb}>IMPORT</button>
                             </div>
 
-                            <div style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.3 }}>
+                            <div className="adminFooterMeta" style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.3 }}>
                                 Import replaces all current data. Unsaved changes will be lost.
                             </div>
 
-                            <div style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.2 }}>
+                            <div className="adminFooterMeta" style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.2 }}>
                                 Last modified: {formatLastModified(lastModifiedMs)}
                             </div>
 
-                            <div style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.2 }}>
+                            <div className="adminFooterMeta" style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.2 }}>
                                 AVA Volumes © {new Date().getFullYear()} — v{APP_VERSION}
                             </div>
                         </div>
