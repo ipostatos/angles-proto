@@ -754,6 +754,7 @@ export default function App() {
     const confirmClear = useCallback(() => {
         setSelectedHolds(new Set());
         setActiveAngleId(null);
+        setCheckedAngles(new Set());
         setShowClearConfirm(false);
     }, []);
 
