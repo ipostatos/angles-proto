@@ -589,6 +589,7 @@ export default function App() {
     const [workMode, setWorkMode] = useState(false);
     const [savedProgress, setSavedProgress] = useState(() => loadWorkProgress());
     const [showExitWorkConfirm, setShowExitWorkConfirm] = useState(false);
+    const [showSavedModal, setShowSavedModal] = useState(false);
 
     const openAdmin = useCallback(() => {
         if (hasAdminSession()) {
@@ -768,7 +769,8 @@ export default function App() {
     const saveProgress = useCallback(() => {
         saveWorkProgress(selectedHolds, checkedAngles, printMode);
         setSavedProgress(loadWorkProgress());
-        toast.success("Progress saved");
+        setShowSavedModal(true);
+        setTimeout(() => setShowSavedModal(false), 1500);
     }, [selectedHolds, checkedAngles, printMode]);
 
     const resumeProgress = useCallback(() => {
@@ -1553,6 +1555,7 @@ export default function App() {
                     onExit={exitWorkMode}
                     onSave={saveProgress}
                     styles={styles}
+                    showSaved={showSavedModal}
                 />
             )}
 
@@ -1994,7 +1997,7 @@ function PrintTableSection({ title, rows, maxColumnsPerRow, className = "" }) {
     );
 }
 
-function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, onSave, styles }) {
+function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, onSave, styles, showSaved }) {
     return (
         <div style={{
             position: "fixed", inset: 0, zIndex: 200,
@@ -2032,6 +2035,27 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, o
                     ← EXIT
                 </button>
             </div>
+
+            {showSaved && (
+                <div style={{
+                    position: "fixed", inset: 0, zIndex: 300,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    pointerEvents: "none",
+                }}>
+                    <div style={{
+                        background: "#1a1a1a", color: "#fff",
+                        borderRadius: 12, padding: "16px 28px",
+                        fontSize: 15, fontWeight: 500,
+                        display: "flex", alignItems: "center", gap: 10,
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+                    }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Progress saved
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
