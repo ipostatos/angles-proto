@@ -721,7 +721,7 @@ export default function App() {
         setSelectedHolds((prev) => {
             const next = new Set(prev);
             if (next.has(name)) next.delete(name);
-            else next.add(name);
+            else { next.add(name); setHoldSearch(""); }
             return next;
         });
     }, []);
