@@ -1525,7 +1525,7 @@ export default function App() {
                                     className="login-modal-input"
                                     style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
                                 />
-                                <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="PASSWORD" styles={styles} autoFocus />
+                                <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="Password" styles={styles} autoFocus />
                                 <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", justifyContent: "center" }}>
                                     <input
                                         type="checkbox"
@@ -1533,7 +1533,7 @@ export default function App() {
                                         onChange={(e) => setRememberMe(e.target.checked)}
                                         style={{ width: 14, height: 14, cursor: "pointer", accentColor: theme.colors.textPrimary }}
                                     />
-                                    <span style={{ fontSize: 12, color: theme.colors.textSecondary }}>Запомнить</span>
+                                    <span style={{ fontSize: 12, color: theme.colors.textSecondary }}>Remember me</span>
                                 </label>
                                 <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                     <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>OK</button>
