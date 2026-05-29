@@ -526,6 +526,17 @@ export default function App() {
     const [data, setData] = useState(() => loadState());
     const [selectedHolds, setSelectedHolds] = useState(() => new Set());
     const [activeAngleId, setActiveAngleId] = useState(null);
+    const [checkedAngles, setCheckedAngles] = useState(() => new Set());
+
+    const toggleAngleCheck = useCallback((id, e) => {
+        e.stopPropagation();
+        setCheckedAngles(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
     const [zoomedImage, setZoomedImage] = useState(null);
     const [lastModifiedMs, setLastModifiedMs] = useState(() => loadLastModified());
 
@@ -1352,7 +1363,7 @@ export default function App() {
                                 <SortIcon direction={mainSort} />
                             </button>
                         </div>
-                        <AngleTable styles={styles} rows={selectedAngles.main} onPick={setActiveAngleId} />
+                        <AngleTable styles={styles} rows={selectedAngles.main} onPick={setActiveAngleId} checkedAngles={checkedAngles} onToggleCheck={toggleAngleCheck} />
                     </div>
                 </Card>
 
@@ -1374,7 +1385,7 @@ export default function App() {
                                 <SortIcon direction={stefanSort} />
                             </button>
                         </div>
-                        <AngleTable styles={styles} rows={selectedAngles.stefan} onPick={setActiveAngleId} />
+                        <AngleTable styles={styles} rows={selectedAngles.stefan} onPick={setActiveAngleId} checkedAngles={checkedAngles} onToggleCheck={toggleAngleCheck} />
                     </div>
                 </Card>
 
@@ -1851,15 +1862,26 @@ function PrintTableSection({ title, rows, maxColumnsPerRow, className = "" }) {
     );
 }
 
-function AngleTable({ rows, onPick, styles }) {
+function AngleTable({ rows, onPick, styles, checkedAngles, onToggleCheck }) {
     return (
         <div style={styles.table} className="print-table-container">
-            {rows.map((r) => (
-                <button key={r.id} onClick={() => onPick(r.id)} style={styles.tableRow} className="print-table-row">
-                    <span style={styles.angleCell}>{toAngleLabel(r.value)}</span>
-                    <span style={styles.nameCell}>{r.hold}</span>
-                </button>
-            ))}
+            {rows.map((r) => {
+                const checked = checkedAngles?.has(r.id);
+                return (
+                    <div key={r.id} style={{ ...styles.tableRow, display: "grid", gridTemplateColumns: "64px 1fr auto", alignItems: "center", gap: 4 }} className="print-table-row" onClick={() => onPick(r.id)}>
+                        <span style={{ ...styles.angleCell, textDecoration: checked ? "line-through" : "none", opacity: checked ? 0.4 : 1 }}>{toAngleLabel(r.value)}</span>
+                        <span style={{ ...styles.nameCell, textDecoration: checked ? "line-through" : "none", opacity: checked ? 0.4 : 1 }}>{r.hold}</span>
+                        <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => onToggleCheck(r.id, e)}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#1a1a1a", flexShrink: 0 }}
+                            data-print-hide
+                        />
+                    </div>
+                );
+            })}
             {rows.length === 0 ? <div style={styles.tableEmpty} /> : null}
         </div>
     );
