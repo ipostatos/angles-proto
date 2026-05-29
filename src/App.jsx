@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import toast from "react-hot-toast";
 
 /**
  * PROTOTYPE (no backend)
@@ -17,7 +18,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
  * - Admin: SHA-256 hash stored in localStorage (no hardcoded password after first login)
  */
 
-const APP_VERSION = "0.9";
+const APP_VERSION = "1.01";
 
 const DEFAULT_HOLDS = [
     "Anton",
@@ -30,9 +31,21 @@ const LS_LAST_MODIFIED_KEY = "angles_proto_v1_lastModified";
 // backups
 const LS_BACKUPS_KEY = `${LS_KEY}_backups`;
 const MAX_BACKUPS = 5;
+const LS_CORRUPT_KEY = `${LS_KEY}_corrupt`;
+
+// Max serialized DB size we allow to keep in localStorage / accept on import (~4.5MB)
+const MAX_DB_SIZE_KB = 4500;
+
+// Set when loadState() had to recover from corrupt data; App surfaces a toast.
+let didRecoverFromCorrupt = false;
 
 // admin auth
 const ADMIN_HASH_KEY = `${LS_KEY}_admin_hash`; // sha256 hex
+const ADMIN_SESSION_KEY = `${LS_KEY}_admin_session`; // "1" while logged in this session
+
+function hasAdminSession() {
+    try { return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1"; } catch { return false; }
+}
 
 function cryptoRandomId() {
     try {
@@ -195,17 +208,20 @@ function loadState() {
         ensureLastModifiedExists();
         return next;
     } catch {
-        const fallback = migrateAndSanitize({
+        // Data is unreadable. Preserve the original bytes for recovery instead of
+        // silently overwriting them, and DON'T touch LS_KEY here so the user can
+        // still export/inspect the corrupt payload.
+        try {
+            const raw = localStorage.getItem(LS_KEY);
+            if (raw) localStorage.setItem(`${LS_CORRUPT_KEY}_${Date.now()}`, raw);
+        } catch { }
+        didRecoverFromCorrupt = true;
+        return migrateAndSanitize({
             version: LS_VERSION,
             holds: DEFAULT_HOLDS,
             angles: DEFAULT_ANGLES,
             holdImages: {},
         });
-        try {
-            localStorage.setItem(LS_KEY, JSON.stringify(fallback));
-            localStorage.setItem(LS_LAST_MODIFIED_KEY, String(Date.now()));
-        } catch { }
-        return fallback;
     }
 }
 
@@ -214,11 +230,16 @@ function saveState(next) {
         const safe = migrateAndSanitize(next);
         localStorage.setItem(LS_KEY, JSON.stringify(safe));
         touchLastModified();
+        return true;
     } catch (err) {
         if (err?.name === "QuotaExceededError" || err?.code === 22) {
             console.warn("Storage full: image not saved. Use smaller images or remove some drawings.");
-            alert("Storage full. Remove some drawings or upload smaller images.");
+            toast.error("Storage full. Remove some drawings or upload smaller images.");
+        } else {
+            console.warn("Save failed:", err);
+            toast.error("Could not save. Changes may be lost.");
         }
+        return false;
     }
 }
 
@@ -331,6 +352,73 @@ async function readJsonFile(file) {
     return JSON.parse(text);
 }
 
+function serializedSizeKB(obj) {
+    try {
+        return new Blob([JSON.stringify(obj)]).size / 1024;
+    } catch {
+        return Infinity;
+    }
+}
+
+function printImage(src) {
+    if (!src) return;
+
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    Object.assign(iframe.style, {
+        position: "fixed",
+        width: "0",
+        height: "0",
+        border: "0",
+        opacity: "0",
+        pointerEvents: "none",
+    });
+    document.body.appendChild(iframe);
+
+    const cleanup = () => {
+        setTimeout(() => iframe.remove(), 500);
+    };
+
+    const win = iframe.contentWindow;
+    const doc = iframe.contentDocument || win?.document;
+    if (!doc || !win) {
+        cleanup();
+        return;
+    }
+
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><title>Drawing</title><style>
+      @page { margin: 12mm; }
+      html, body { margin: 0; padding: 0; height: 100%; }
+      body { display: flex; align-items: center; justify-content: center; }
+      img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    </style></head><body><img id="print-drawing" alt="drawing" /></body></html>`);
+    doc.close();
+
+    const img = doc.getElementById("print-drawing");
+    if (!img) {
+        cleanup();
+        return;
+    }
+
+    let printed = false;
+    const doPrint = () => {
+        if (printed) return;
+        printed = true;
+        try {
+            win.focus();
+            win.print();
+        } finally {
+            cleanup();
+        }
+    };
+
+    img.onerror = cleanup;
+    img.onload = doPrint;
+    img.src = src;
+    if (img.complete) doPrint();
+}
+
 function formatLastModified(ms) {
     if (!ms || !Number.isFinite(ms)) return "—";
     try {
@@ -419,18 +507,116 @@ export default function App() {
     // Print mode: 'all' | 'main' | 'stefan'
     const [printMode, setPrintMode] = useState("all");
 
-    const [mainSort, setMainSort] = useState("asc");
+    const [mainSort, setMainSort] = useState("desc");
     const [stefanSort, setStefanSort] = useState("asc");
 
     const [holdSearch, setHoldSearch] = useState("");
     const searchRef = useRef(null);
 
-    // P0: debounce localStorage writes
-    const debouncedData = useDebounce(data, 500);
+    // admin login modal (appears over the main page, no navigation)
+    const [showLogin, setShowLogin] = useState(false);
+    const [loginUser, setLoginUser] = useState("admin");
+    const [loginPass, setLoginPass] = useState("");
+    // Keeps admin mounted after one-time session token is consumed on AdminPage mount
+    const [adminAuthed, setAdminAuthed] = useState(false);
+    const prevRouteRef = useRef(null);
+
+    const openAdmin = useCallback(() => {
+        if (hasAdminSession()) {
+            window.location.hash = "#/admin";
+        } else {
+            setLoginPass("");
+            setShowLogin(true);
+        }
+    }, []);
+
+    // Route guards: require login when entering /admin; clear auth when leaving (browser Back, etc.)
     useEffect(() => {
+        const prev = prevRouteRef.current;
+        prevRouteRef.current = route;
+
+        if (prev === "/admin" && route !== "/admin") {
+            setAdminAuthed(false);
+            setShowLogin(false);
+            try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { }
+        }
+
+        if (route === "/admin" && prev !== "/admin" && !adminAuthed && !hasAdminSession()) {
+            setLoginPass("");
+            setShowLogin(true);
+            if (window.location.hash !== "#/" && window.location.hash !== "#") {
+                window.location.hash = "#/";
+            }
+        }
+    }, [route, adminAuthed]);
+
+    const submitLogin = useCallback(async () => {
+        if (!globalThis.crypto?.subtle) {
+            toast.error("Secure login unavailable here. Open the app over https or localhost.");
+            return;
+        }
+
+        let storedHash = null;
+        try { storedHash = localStorage.getItem(ADMIN_HASH_KEY); } catch { }
+
+        const finish = () => {
+            try { sessionStorage.setItem(ADMIN_SESSION_KEY, "1"); } catch { }
+            setAdminAuthed(true);
+            setShowLogin(false);
+            setLoginPass("");
+            window.location.hash = "#/admin";
+        };
+
+        try {
+            if (!storedHash) {
+                if (loginUser === "admin" && loginPass === "admin") {
+                    let stored = false;
+                    try {
+                        localStorage.setItem(ADMIN_HASH_KEY, await sha256Hex(loginPass));
+                        stored = true;
+                    } catch {
+                        toast.error("Could not save password. Check browser storage settings.");
+                    }
+                    if (stored) finish();
+                } else {
+                    toast("First login: use admin / admin once to set your password.");
+                }
+                return;
+            }
+
+            const hash = await sha256Hex(loginPass);
+            if (loginUser === "admin" && hash === storedHash) {
+                finish();
+            } else {
+                toast.error("Wrong credentials");
+            }
+        } catch (err) {
+            console.warn("Login failed:", err);
+            toast.error("Login failed. Please try again.");
+        }
+    }, [loginUser, loginPass]);
+
+    // P0: debounce localStorage writes. Skip the first run so we don't immediately
+    // re-write storage on mount (loadState already persisted sanitized data, and this
+    // preserves any corrupt payload backed up for recovery).
+    const debouncedData = useDebounce(data, 500);
+    const skipFirstSaveRef = useRef(true);
+    useEffect(() => {
+        if (skipFirstSaveRef.current) {
+            skipFirstSaveRef.current = false;
+            return;
+        }
         saveState(debouncedData);
         setLastModifiedMs(loadLastModified());
     }, [debouncedData]);
+
+    // Surface a one-time warning if stored data was unreadable and we recovered.
+    useEffect(() => {
+        if (didRecoverFromCorrupt) {
+            didRecoverFromCorrupt = false;
+            toast.error("Saved data was unreadable. A backup copy was kept; you can re-import from EXPORT file.", { duration: 6000 });
+        }
+    }, []);
 
     useEffect(() => {
         if (activeAngleId && !data.angles.some((a) => a.id === activeAngleId)) {
@@ -481,7 +667,7 @@ export default function App() {
             if (cover) return cover;
         }
         return null;
-    }, [activeAngle, selectedHolds, data?.holdImages]);
+    }, [activeAngle, selectedHolds, data.holdImages]);
 
     // P1: useCallback handlers
     const toggleHold = useCallback((name) => {
@@ -508,12 +694,17 @@ export default function App() {
 
     const styles = useMemo(() => getStyles(theme), []);
 
-    if (route === "/admin") {
+    if (route === "/admin" && (adminAuthed || hasAdminSession())) {
         return (
             <AdminPage
                 data={data}
                 setData={setData}
-                onExit={() => (window.location.hash = "#/")}
+                onExit={() => {
+                    setShowLogin(false);
+                    setAdminAuthed(false);
+                    try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { }
+                    window.location.hash = "#/";
+                }}
                 lastModifiedMs={lastModifiedMs}
             />
         );
@@ -522,7 +713,14 @@ export default function App() {
     return (
         <div style={styles.page} className={`app-page print-mode-${printMode}`}>
             <style>{`
+        .print-sheet {
+          display: none;
+        }
+
         @media print {
+          @page {
+            margin: 10mm;
+          }
           html, body, #root, .app-page {
             height: auto !important;
             min-height: 0 !important;
@@ -532,76 +730,71 @@ export default function App() {
             padding: 0 !important;
           }
           [data-print-hide] { display: none !important; }
-          .main-grid {
+          .main-grid { display: none !important; }
+
+          .print-sheet {
             display: block !important;
             width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            height: auto !important;
           }
-          .main-grid::after {
-            content: "";
-            display: table;
-            clear: both;
+          /* ALL: MAIN left, STEFAN right — reliable table layout for print */
+          .print-mode-all .print-sheet {
+            display: table !important;
+            width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: separate !important;
+            border-spacing: 4% 0 !important;
           }
-          .main-grid > :nth-child(1), .main-grid > :nth-child(4) { display: none !important; }
-          
-          .main-grid > :nth-child(2), .main-grid > :nth-child(3) {
+          .print-mode-all .print-section {
+            display: table-cell !important;
+            width: 48% !important;
+            vertical-align: top !important;
+          }
+          .print-mode-main .print-section-stefan { display: none !important; }
+          .print-mode-stefan .print-section-main { display: none !important; }
+
+          .print-section-title {
+            font-size: 20px !important;
+            font-weight: 600 !important;
+            text-align: center !important;
+            margin: 0 0 10px 0 !important;
+            break-after: avoid !important;
+            page-break-after: avoid !important;
+          }
+          .print-columns-row {
             display: block !important;
-            box-sizing: border-box !important;
-            overflow: visible !important;
-            border: none !important;
-            box-shadow: none !important;
+            width: 100% !important;
+            overflow: hidden !important;
+          }
+          .print-columns-row::after {
+            content: "" !important;
+            display: table !important;
+            clear: both !important;
+          }
+          .print-columns-row-break {
+            break-before: page !important;
+            page-break-before: always !important;
+          }
+          .print-column {
             float: left !important;
-            margin: 0 !important;
-            padding: 0 !important;
+            box-sizing: border-box !important;
+            padding-right: 10px !important;
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
           }
-
-          /* DEFAULT (ALL): 2 columns float */
-          .main-grid > :nth-child(2) { width: 48% !important; margin-right: 3% !important; }
-          .main-grid > :nth-child(3) { width: 48% !important; margin-right: 0 !important; }
-          
-          /* Disable container columns in ALL mode because the page itself has 2 float columns */
-          .print-mode-all .print-table-container { column-count: 1 !important; display: block !important; margin: 0 !important; padding: 0 !important; }
-
-          /* MODE: MAIN ONLY */
-          .print-mode-main .main-grid > :nth-child(2) { width: 100% !important; margin-right: 0 !important; }
-          .print-mode-main .main-grid > :nth-child(3) { display: none !important; }
-          
-          /* MODE: STEFAN ONLY */
-          .print-mode-stefan .main-grid > :nth-child(3) { width: 100% !important; float: left !important; margin-right: 0 !important; }
-          .print-mode-stefan .main-grid > :nth-child(2) { display: none !important; }
-
-          /* Enable internal container columns in single modes */
-          .print-mode-main .print-table-container,
-          .print-mode-stefan .print-table-container {
-            display: block !important;
-            column-width: 160px !important;
-            column-count: auto !important;
-            column-gap: 20px !important;
-            column-fill: auto !important;
-            overflow: visible !important;
-            gap: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          
-          .print-table-container {
-            display: block !important;
-            overflow: visible !important;
-            gap: 0 !important;
+          .print-mode-all .print-column {
+            padding-right: 6px !important;
           }
           .card { overflow: visible !important; }
           .print-table-row {
             border: none !important;
             padding: 0 !important;
             background: transparent !important;
-            margin-bottom: 6px !important;
-            page-break-inside: avoid !important;
+            margin-bottom: 4px !important;
             break-inside: avoid !important;
+            page-break-inside: avoid !important;
             display: grid !important;
-            grid-template-columns: 60px 1fr !important;
-            column-gap: 12px !important;
+            grid-template-columns: 52px 1fr !important;
+            column-gap: 8px !important;
             align-items: baseline !important;
             -webkit-appearance: none !important;
             appearance: none !important;
@@ -609,16 +802,25 @@ export default function App() {
             box-shadow: none !important;
           }
           .print-table-row span {
-            font-size: 18px !important;
-            line-height: 1.2 !important;
+            font-size: 15px !important;
+            line-height: 1.15 !important;
+            font-weight: 400 !important;
           }
-          .print-table-row span:first-child {
+          .print-table-row span:first-child,
+          .print-table-row .print-angle {
             text-align: right !important;
             font-variant-numeric: tabular-nums !important;
+            font-weight: 700 !important;
+          }
+          .print-table-row span:last-child,
+          .print-table-row .print-hold {
+            font-weight: 400 !important;
           }
           .tableTitleCenter {
-            font-size: 24px !important;
-            margin-bottom: 16px !important;
+            font-size: 20px !important;
+            margin-bottom: 10px !important;
+            break-after: avoid !important;
+            page-break-after: avoid !important;
           }
           .print-header {
             margin-bottom: 2px !important;
@@ -861,9 +1063,63 @@ export default function App() {
           }
         }
         /* MOBILE ULTRA COMPACT END */
+
+        /* DESKTOP LOCK: no page sliding, only internal lists/tables scroll */
+        @media screen and (min-width: 901px) {
+          html, body, #root {
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
+          }
+          .app-page {
+            width: 100vw !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+          }
+          .main-grid {
+            display: grid !important;
+            grid-template-columns: minmax(180px, 220px) minmax(190px, 260px) minmax(190px, 260px) minmax(260px, 1fr) !important;
+            grid-template-rows: 1fr !important;
+            width: 100% !important;
+            max-width: 1500px !important;
+            height: calc(100vh - clamp(24px, 6vw, 48px)) !important;
+            overflow: hidden !important;
+            margin: 0 auto !important;
+          }
+          .main-grid > * {
+            min-width: 0 !important;
+            min-height: 0 !important;
+            grid-row: auto !important;
+            grid-column: auto !important;
+          }
+          .holdsList,
+          .table {
+            max-height: none !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+          }
+          .card,
+          .cardBody,
+          .tableBody {
+            min-height: 0 !important;
+            overflow: hidden !important;
+          }
+        }
         
-        button:focus { outline: none; }
-        button:focus-visible { outline: none; }
+        button, [role="button"], input, select, label, a, summary {
+          outline: none !important;
+          -webkit-tap-highlight-color: transparent;
+        }
+        button:focus, button:focus-visible,
+        [role="button"]:focus, [role="button"]:focus-visible,
+        input:focus, input:focus-visible,
+        input[type="checkbox"]:focus, input[type="checkbox"]:focus-visible,
+        select:focus, select:focus-visible,
+        label:focus, a:focus, a:focus-visible {
+          outline: none !important;
+          box-shadow: none !important;
+        }
+        button::-moz-focus-inner { border: 0; }
       `}</style>
 
             <div style={styles.grid} className="main-grid">
@@ -908,28 +1164,16 @@ export default function App() {
                         </div>
 
                         <div style={styles.footerRow} className="footerRow">
-                            <select
+                            <PrintModeSelect
                                 value={printMode}
-                                onChange={(e) => setPrintMode(e.target.value)}
-                                className="printSelect"
-                                style={{
-                                    ...styles.input,
-                                    height: 36,
-                                    padding: "0 8px",
-                                    fontSize: 13,
-                                    width: "auto",
-                                    minWidth: 80,
-                                    flex: "1 1 auto",
-                                    marginRight: 0,
-                                    cursor: "pointer"
-                                }}
-                                title="Select print mode"
-                                data-print-hide
-                            >
-                                <option value="all">ALL</option>
-                                <option value="main">MAIN</option>
-                                <option value="stefan">STEFAN</option>
-                            </select>
+                                onChange={setPrintMode}
+                                styles={styles}
+                                options={[
+                                    { value: "all", label: "ALL" },
+                                    { value: "main", label: "MAIN" },
+                                    { value: "stefan", label: "STEFAN" },
+                                ]}
+                            />
 
                             <button
                                 type="button"
@@ -958,9 +1202,9 @@ export default function App() {
                                 type="button"
                                 style={{ ...styles.btnGhost, ...styles.footerBtn }}
                                 className="footerBtn"
-                                onClick={() => (window.location.hash = "#/admin")}
+                                onClick={openAdmin}
                             >
-                                admin
+                                ADMIN
                             </button>
 
                             <button
@@ -969,7 +1213,7 @@ export default function App() {
                                 className="footerBtn"
                                 onClick={clearSelection}
                             >
-                                clear
+                                CLEAR
                             </button>
                         </div>
                     </div>
@@ -1025,13 +1269,24 @@ export default function App() {
                         {viewerSrc ? (
                             <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
                                 <img src={viewerSrc} alt="drawing" style={styles.viewerImg} draggable={false} />
-                                <button
-                                    onClick={() => setZoomedImage(viewerSrc)}
-                                    style={styles.zoomBtn}
-                                    title="Zoom image"
-                                >
-                                    <ZoomIcon />
-                                </button>
+                                <div style={styles.viewerTools}>
+                                    <button
+                                        type="button"
+                                        onClick={() => printImage(viewerSrc)}
+                                        style={styles.viewerToolBtn}
+                                        title="Print drawing"
+                                    >
+                                        <PrinterIcon size={20} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setZoomedImage(viewerSrc)}
+                                        style={styles.viewerToolBtn}
+                                        title="Zoom image"
+                                    >
+                                        <ZoomIcon />
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <div style={styles.viewerEmpty}>
@@ -1040,6 +1295,26 @@ export default function App() {
                         )}
                     </div>
                 </Card>
+            </div>
+
+            {/* Print-only layout: headers on top, rows flow into side columns */}
+            <div className="print-sheet">
+                {(printMode === "all" || printMode === "main") && (
+                    <PrintTableSection
+                        title="MAIN"
+                        rows={selectedAngles.main}
+                        maxColumnsPerRow={printMode === "all" ? PRINT_MAX_COLUMNS_ALL : PRINT_MAX_COLUMNS_SINGLE}
+                        className="print-section-main"
+                    />
+                )}
+                {(printMode === "all" || printMode === "stefan") && (
+                    <PrintTableSection
+                        title="STEFAN"
+                        rows={selectedAngles.stefan}
+                        maxColumnsPerRow={printMode === "all" ? PRINT_MAX_COLUMNS_ALL : PRINT_MAX_COLUMNS_SINGLE}
+                        className="print-section-stefan"
+                    />
+                )}
             </div>
 
             {/* Zoom Overlay */}
@@ -1062,6 +1337,93 @@ export default function App() {
                     </button>
                 </div>
             )}
+
+            {/* Admin login modal (over the page, no navigation) */}
+            {showLogin && (
+                <div
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        background: "rgba(0,0,0,0.32)",
+                        backdropFilter: "blur(3px)",
+                        WebkitBackdropFilter: "blur(3px)",
+                        zIndex: 9999,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 20,
+                    }}
+                    onClick={() => setShowLogin(false)}
+                >
+                    <style>{`
+                        .login-modal-input:focus,
+                        .login-modal-input:focus-visible {
+                            background: ${theme.colors.inputBg} !important;
+                            outline: none !important;
+                            box-shadow: none !important;
+                            border-color: ${theme.colors.borderMedium} !important;
+                        }
+                        .login-modal-input:-webkit-autofill,
+                        .login-modal-input:-webkit-autofill:hover,
+                        .login-modal-input:-webkit-autofill:focus {
+                            -webkit-box-shadow: 0 0 0 1000px ${theme.colors.inputBg} inset !important;
+                            -webkit-text-fill-color: ${theme.colors.textPrimary} !important;
+                            transition: background-color 9999s ease-out 0s;
+                        }
+                    `}</style>
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") submitLogin();
+                            if (e.key === "Escape") setShowLogin(false);
+                        }}
+                        style={{
+                            width: "100%",
+                            maxWidth: 300,
+                            background: theme.colors.cardBg,
+                            border: `1px solid ${theme.colors.border}`,
+                            borderRadius: 8,
+                            padding: 24,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            boxSizing: "border-box",
+                        }}
+                    >
+                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ADMIN</div>
+                        <input
+                            value={loginUser}
+                            onChange={(e) => setLoginUser(e.target.value)}
+                            placeholder="LOGIN"
+                            className="login-modal-input"
+                            style={{
+                                ...styles.input,
+                                textAlign: "center",
+                                background: theme.colors.inputBg,
+                                boxShadow: "none",
+                            }}
+                        />
+                        <input
+                            value={loginPass}
+                            onChange={(e) => setLoginPass(e.target.value)}
+                            placeholder="PASSWORD"
+                            type="password"
+                            autoFocus
+                            className="login-modal-input"
+                            style={{
+                                ...styles.input,
+                                textAlign: "center",
+                                background: theme.colors.inputBg,
+                                boxShadow: "none",
+                            }}
+                        />
+                        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4 }}>
+                            <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>OK</button>
+                            <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>CANCEL</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -1081,11 +1443,11 @@ function SearchIcon() {
     );
 }
 
-function PrinterIcon() {
+function PrinterIcon({ size = 16 }) {
     return (
         <svg
-            width="16"
-            height="16"
+            width={size}
+            height={size}
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -1098,6 +1460,114 @@ function PrinterIcon() {
             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
             <rect x="6" y="14" width="12" height="8" />
         </svg>
+    );
+}
+
+function SaveIcon() {
+    return (
+        <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ display: "block" }}
+        >
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+        </svg>
+    );
+}
+
+/* Custom rounded dropdown (no native blue highlight) */
+function PrintModeSelect({ value, onChange, options, styles }) {
+    const [open, setOpen] = useState(false);
+    const [hovered, setHovered] = useState(null);
+    const wrapRef = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDocClick = (e) => {
+            if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener("mousedown", onDocClick);
+        return () => document.removeEventListener("mousedown", onDocClick);
+    }, [open]);
+
+    const current = options.find((o) => o.value === value) || options[0];
+
+    return (
+        <div ref={wrapRef} style={{ position: "relative", flex: "1 1 auto", minWidth: 80 }} data-print-hide>
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                title="Select print mode"
+                style={{
+                    ...styles.btnGhost,
+                    height: 36,
+                    width: "100%",
+                    padding: "0 10px",
+                    borderRadius: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    fontSize: 13,
+                    cursor: "pointer",
+                }}
+            >
+                <span>{current.label}</span>
+                <span style={{ fontSize: 10, opacity: 0.6 }}>{open ? "▲" : "▼"}</span>
+            </button>
+
+            {open && (
+                <div
+                    style={{
+                        position: "absolute",
+                        bottom: "calc(100% + 6px)",
+                        left: 0,
+                        right: 0,
+                        background: theme.colors.cardBg,
+                        border: `1px solid ${theme.colors.borderMedium}`,
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        zIndex: 50,
+                    }}
+                >
+                    {options.map((o) => {
+                        const isSel = o.value === value;
+                        const isHov = hovered === o.value;
+                        return (
+                            <button
+                                key={o.value}
+                                type="button"
+                                onMouseEnter={() => setHovered(o.value)}
+                                onMouseLeave={() => setHovered(null)}
+                                onClick={() => { onChange(o.value); setOpen(false); }}
+                                style={{
+                                    display: "block",
+                                    width: "100%",
+                                    textAlign: "left",
+                                    padding: "9px 12px",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    fontSize: 13,
+                                    background: isSel ? theme.colors.activeBg : isHov ? theme.colors.hoverBg : "transparent",
+                                    color: theme.colors.textPrimary,
+                                    fontWeight: isSel ? 600 : 400,
+                                }}
+                            >
+                                {o.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -1122,6 +1592,66 @@ function ZoomIcon() {
     );
 }
 
+function chunkRowsForPrint(rows, rowsPerColumn) {
+    if (!rows.length) return [];
+    const chunks = [];
+    for (let i = 0; i < rows.length; i += rowsPerColumn) {
+        chunks.push(rows.slice(i, i + rowsPerColumn));
+    }
+    return chunks;
+}
+
+function buildPrintColumnGroups(rows, rowsPerColumn, maxColumnsPerRow) {
+    const chunks = chunkRowsForPrint(rows, rowsPerColumn);
+    if (!chunks.length) return [];
+    const groups = [];
+    for (let i = 0; i < chunks.length; i += maxColumnsPerRow) {
+        groups.push(chunks.slice(i, i + maxColumnsPerRow));
+    }
+    return groups;
+}
+
+// A4 portrait: ~46 rows per column keeps each column on one page
+const PRINT_ROWS_PER_COLUMN = 46;
+const PRINT_MAX_COLUMNS_ALL = 2;
+const PRINT_MAX_COLUMNS_SINGLE = 4;
+
+function PrintAngleRow({ row }) {
+    return (
+        <div className="print-table-row">
+            <span className="print-angle">{toAngleLabel(row.value)}</span>
+            <span className="print-hold">{row.hold}</span>
+        </div>
+    );
+}
+
+function PrintTableSection({ title, rows, maxColumnsPerRow, className = "" }) {
+    const columnGroups = buildPrintColumnGroups(rows, PRINT_ROWS_PER_COLUMN, maxColumnsPerRow);
+    return (
+        <div className={`print-section ${className}`.trim()}>
+            <div className="print-section-title">{title}</div>
+            {columnGroups.map((group, groupIdx) => (
+                <div
+                    key={groupIdx}
+                    className={`print-columns-row${groupIdx > 0 ? " print-columns-row-break" : ""}`}
+                >
+                    {group.map((col, colIdx) => (
+                        <div
+                            key={colIdx}
+                            className="print-column"
+                            style={{ width: `${100 / group.length}%` }}
+                        >
+                            {col.map((r) => (
+                                <PrintAngleRow key={r.id} row={r} />
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            ))}
+        </div>
+    );
+}
+
 function AngleTable({ rows, onPick, styles }) {
     return (
         <div style={styles.table} className="print-table-container">
@@ -1140,18 +1670,21 @@ function AngleTable({ rows, onPick, styles }) {
 
 function AdminPage({ data, setData, onExit, lastModifiedMs }) {
     const styles = useMemo(() => getStyles(theme), []);
-    const [authed, setAuthed] = useState(false);
-    const [login, setLogin] = useState("admin");
-    const [password, setPassword] = useState("");
 
-    const holdsSafe = useMemo(() => sortHolds(Array.isArray(data?.holds) ? data.holds : []), [data?.holds]);
-    const anglesSafe = Array.isArray(data?.angles) ? data.angles : [];
+    const [draftData, setDraftData] = useState(() => data);
+
+    const holdsSafe = useMemo(() => sortHolds(Array.isArray(draftData?.holds) ? draftData.holds : []), [draftData?.holds]);
+    const anglesSafe = Array.isArray(draftData?.angles) ? draftData.angles : [];
 
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [newHoldName, setNewHoldName] = useState("");
     const [editingHold, setEditingHold] = useState(null);
     const [editingHoldName, setEditingHoldName] = useState("");
     const [selectedAngleId, setSelectedAngleId] = useState(null);
+    const [zoomedImage, setZoomedImage] = useState(null);
+    const [confirmState, setConfirmState] = useState(null);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const confirmResolverRef = useRef(null);
 
     const [adminHoldSearch, setAdminHoldSearch] = useState("");
     const adminSearchRef = useRef(null);
@@ -1170,6 +1703,67 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
     const normalizeHoldName = (s) => String(s || "").trim().replace(/\s+/g, " ");
 
+    const askConfirm = useCallback((message) => {
+        return new Promise((resolve) => {
+            confirmResolverRef.current = resolve;
+            setConfirmState({ message });
+        });
+    }, []);
+
+    const closeConfirm = useCallback((result) => {
+        if (confirmResolverRef.current) {
+            confirmResolverRef.current(result);
+            confirmResolverRef.current = null;
+        }
+        setConfirmState(null);
+    }, []);
+
+    const updateAdminData = useCallback((updater) => {
+        setHasUnsavedChanges(true);
+        setDraftData((prev) => (typeof updater === "function" ? updater(prev) : updater));
+    }, []);
+
+    const handleSave = useCallback(() => {
+        const ok = saveState(draftData);
+        if (!ok) {
+            // saveState already surfaced the reason; keep the unsaved flag so the user can retry.
+            return;
+        }
+        setData(draftData);
+        setHasUnsavedChanges(false);
+        toast.success("Changes saved");
+    }, [draftData, setData]);
+
+    const handleExit = useCallback(async () => {
+        if (hasUnsavedChanges) {
+            const ok = await askConfirm("You have unsaved changes. Leave without saving?");
+            if (!ok) return;
+        }
+        onExit();
+    }, [askConfirm, hasUnsavedChanges, onExit]);
+
+    // Session is a one-time token: consume it on mount so re-entering admin
+    // (back button, browser nav, reload) always requires logging in again.
+    useEffect(() => {
+        try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { }
+    }, []);
+
+    useEffect(() => {
+        if (!hasUnsavedChanges) setDraftData(data);
+    }, [data, hasUnsavedChanges]);
+
+    // Warn before closing/reloading the tab while admin edits are unsaved.
+    useEffect(() => {
+        if (!hasUnsavedChanges) return;
+        const onBeforeUnload = (e) => {
+            e.preventDefault();
+            e.returnValue = "";
+            return "";
+        };
+        window.addEventListener("beforeunload", onBeforeUnload);
+        return () => window.removeEventListener("beforeunload", onBeforeUnload);
+    }, [hasUnsavedChanges]);
+
     useEffect(() => {
         if (selectedProduct && !holdsSafe.includes(selectedProduct)) setSelectedProduct(null);
     }, [holdsSafe, selectedProduct]);
@@ -1178,51 +1772,24 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         if (selectedAngleId && !anglesSafe.some((a) => a.id === selectedAngleId)) setSelectedAngleId(null);
     }, [anglesSafe, selectedAngleId]);
 
-    // P1: no hardcoded password after first login
-    const doLogin = useCallback(async () => {
-        const storedHash = (() => {
-            try { return localStorage.getItem(ADMIN_HASH_KEY); } catch { return null; }
-        })();
-
-        // first-time bootstrap: allow admin/admin and store hash
-        if (!storedHash) {
-            if (login === "admin" && password === "admin") {
-                try {
-                    const h = await sha256Hex(password);
-                    localStorage.setItem(ADMIN_HASH_KEY, h);
-                } catch { }
-                setAuthed(true);
-                return;
-            }
-            alert("First login: use admin/admin (once) to set password hash.");
-            return;
-        }
-
-        const hash = await sha256Hex(password);
-        if (login === "admin" && hash === storedHash) {
-            setAuthed(true);
-        } else {
-            alert("Wrong credentials");
-        }
-    }, [login, password]);
-
     const addHold = useCallback(() => {
         const name = normalizeHoldName(newHoldName);
         if (!name) return;
-        setData((prev) => {
+        updateAdminData((prev) => {
             const prevHolds = Array.isArray(prev.holds) ? prev.holds : [];
             if (prevHolds.some((h) => String(h).toLowerCase() === name.toLowerCase())) return prev;
             return { ...prev, holds: sortHolds([...prevHolds, name]) };
         });
         setNewHoldName("");
         setSelectedProduct(name);
-    }, [newHoldName, setData]);
+    }, [newHoldName, updateAdminData]);
 
-    const confirmRemoveHold = useCallback((nameToRemove) => {
+    const confirmRemoveHold = useCallback(async (nameToRemove) => {
         const cnt = anglesSafe.filter((a) => a.hold === nameToRemove).length;
-        if (!window.confirm(cnt > 0 ? `Delete "${nameToRemove}" and ${cnt} angle(s)?` : `Delete "${nameToRemove}"?`)) return;
+        const ok = await askConfirm(cnt > 0 ? `Delete "${nameToRemove}" and ${cnt} angle(s)?` : `Delete "${nameToRemove}"?`);
+        if (!ok) return;
 
-        setData((prev) => {
+        updateAdminData((prev) => {
             const nextHoldImages = { ...(prev.holdImages || {}) };
             delete nextHoldImages[nameToRemove];
 
@@ -1236,7 +1803,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
         if (selectedProduct === nameToRemove) setSelectedProduct(null);
         if (editingHold === nameToRemove) setEditingHold(null);
-    }, [anglesSafe, editingHold, selectedProduct, setData]);
+    }, [anglesSafe, askConfirm, editingHold, selectedProduct, updateAdminData]);
 
     const startRenameHold = useCallback((h) => {
         setEditingHold(h);
@@ -1257,7 +1824,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             holdsSafe.some((h) => String(h).toLowerCase() === nextName.toLowerCase())
         ) return;
 
-        setData((prev) => {
+        updateAdminData((prev) => {
             const nextHoldImages = { ...(prev.holdImages || {}) };
             if (nextHoldImages[oldName]) {
                 nextHoldImages[nextName] = nextHoldImages[oldName];
@@ -1274,31 +1841,31 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
         setEditingHold(null);
         if (selectedProduct === oldName) setSelectedProduct(nextName);
-    }, [editingHoldName, holdsSafe, selectedProduct, setData]);
+    }, [editingHoldName, holdsSafe, selectedProduct, updateAdminData]);
 
     const addAngleForHold = useCallback((holdName, saw) => {
-        setData((prev) => ({
+        updateAdminData((prev) => ({
             ...prev,
             angles: [...(prev.angles || []), { id: cryptoRandomId(), hold: holdName, value: 0, saw }],
         }));
         setSelectedProduct(holdName);
-    }, [setData]);
+    }, [updateAdminData]);
 
     const updateAngle = useCallback((id, patch) => {
-        setData((prev) => ({
+        updateAdminData((prev) => ({
             ...prev,
             angles: (prev.angles || []).map((a) => (a.id === id ? { ...a, ...patch } : a)),
         }));
-    }, [setData]);
+    }, [updateAdminData]);
 
-    const removeAngle = useCallback((id) => {
-        if (!window.confirm("Delete this angle?")) return;
-        setData((prev) => ({
+    const removeAngle = useCallback(async (id) => {
+        if (!(await askConfirm("Delete this angle?"))) return;
+        updateAdminData((prev) => ({
             ...prev,
             angles: (prev.angles || []).filter((a) => a.id !== id),
         }));
         if (selectedAngleId === id) setSelectedAngleId(null);
-    }, [selectedAngleId, setData]);
+    }, [askConfirm, selectedAngleId, updateAdminData]);
 
     const handleDrawingUpload = useCallback((e) => {
         const file = e.target.files?.[0];
@@ -1309,7 +1876,10 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
         compressImageFile(file)
             .then((dataUrl) => updateAngle(angleId, { drawing: dataUrl }))
-            .catch(() => { });
+            .catch((err) => {
+                console.warn("Image upload failed:", err);
+                toast.error("Could not process this image. Try another file.");
+            });
     }, [updateAngle]);
 
     const handleHoldCoverUpload = useCallback((e) => {
@@ -1321,7 +1891,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
         compressImageFile(file, 900, 0.85)
             .then((dataUrl) => {
-                setData((prev) => ({
+                updateAdminData((prev) => ({
                     ...prev,
                     holdImages: {
                         ...(prev.holdImages || {}),
@@ -1329,17 +1899,20 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                     },
                 }));
             })
-            .catch(() => { });
-    }, [setData]);
+            .catch((err) => {
+                console.warn("Cover upload failed:", err);
+                toast.error("Could not process this image. Try another file.");
+            });
+    }, [updateAdminData]);
 
-    const removeHoldCover = useCallback((holdName) => {
-        if (!window.confirm("Remove hold cover image?")) return;
-        setData((prev) => {
+    const removeHoldCover = useCallback(async (holdName) => {
+        if (!(await askConfirm("Remove hold cover image?"))) return;
+        updateAdminData((prev) => {
             const next = { ...(prev.holdImages || {}) };
             delete next[holdName];
             return { ...prev, holdImages: next };
         });
-    }, [setData]);
+    }, [askConfirm, updateAdminData]);
 
     const exportDb = useCallback(() => {
         const now = new Date();
@@ -1349,36 +1922,50 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         const hh = String(now.getHours()).padStart(2, "0");
         const min = String(now.getMinutes()).padStart(2, "0");
         const filename = `Base_${yyyy}-${mm}-${dd}_${hh}-${min}.json`;
-        downloadJsonFile(data, filename);
-    }, [data]);
-    const triggerImportDb = useCallback(() => importDbInputRef.current?.click(), []);
+        downloadJsonFile(draftData, filename);
+    }, [draftData]);
+    const triggerImportDb = useCallback(async () => {
+        const ok = await askConfirm("Import will replace all current data. Continue?");
+        if (ok) importDbInputRef.current?.click();
+    }, [askConfirm]);
 
     const handleImportDb = useCallback(async (e) => {
         const file = e.target.files?.[0];
         e.target.value = "";
         if (!file) return;
 
+        // Guard against oversized files before reading them into memory.
+        if (file.size / 1024 > MAX_DB_SIZE_KB) {
+            toast.error(`Import too large: ${(file.size / 1024 / 1024).toFixed(1)}MB (max ${(MAX_DB_SIZE_KB / 1024).toFixed(1)}MB).`);
+            return;
+        }
+
         try {
             const parsed = await readJsonFile(file);
             const safe = migrateAndSanitize(parsed);
             if (!safe.holds?.length) {
-                alert("Import failed: no holds found.");
+                toast.error("Import failed: no holds found.");
+                return;
+            }
+
+            // Sanitized payload must still fit in storage.
+            if (serializedSizeKB(safe) > MAX_DB_SIZE_KB) {
+                toast.error("Import too large after processing. Remove or compress some images.");
                 return;
             }
 
             // P1: backup before import
-            pushBackup(data);
+            pushBackup(draftData);
 
-            setData(safe);
+            updateAdminData(safe);
             setSelectedProduct(null);
             setSelectedAngleId(null);
-            touchLastModified();
-            alert("DB imported ✅");
+            toast.success("Database imported. Press SAVE to keep changes.");
         } catch (err) {
             console.warn(err);
-            alert("Import failed: invalid JSON.");
+            toast.error("Import failed: invalid JSON.");
         }
-    }, [data, setData]);
+    }, [draftData, updateAdminData]);
 
     const anglesByHold = useMemo(() => {
         const map = new Map();
@@ -1401,35 +1988,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         [selectedProduct, anglesByHold]
     );
 
-    if (!authed) {
-        return (
-            <div style={styles.page}>
-                <div style={{ ...styles.adminGrid, maxWidth: 400, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Card style={{ ...styles.card, width: "100%", maxWidth: 320 }}>
-                        <div style={{ ...styles.cardBody, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 }}>
-                            <div style={{ ...styles.adminTitle, marginBottom: 0 }}>admin</div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
-                                <input value={login} onChange={(e) => setLogin(e.target.value)} placeholder="login" style={{ ...styles.input, textAlign: "center" }} />
-                                <input
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="password"
-                                    type="password"
-                                    style={{ ...styles.input, textAlign: "center" }}
-                                />
-                                <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
-                                    <button style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={doLogin}>ok</button>
-                                    <button style={styles.btnGhost} onClick={onExit}>back</button>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-            </div>
-        );
-    }
-
-    const selectedCover = selectedProduct ? (data?.holdImages?.[selectedProduct] || null) : null;
+    const selectedCover = selectedProduct ? (draftData?.holdImages?.[selectedProduct] || null) : null;
 
     return (
         <div style={styles.adminPage} className="admin-page-wrapper">
@@ -1503,9 +2062,62 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
           }
         }
         /* MOBILE ADAPTATION END */
+
+        /* DESKTOP LOCK: no page sliding, only internal lists/tables scroll */
+        @media (min-width: 901px) {
+          html, body, #root {
+            width: 100% !important;
+            height: 100% !important;
+            overflow: hidden !important;
+          }
+          .admin-page-wrapper {
+            width: 100vw !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+          }
+          .admin-grid-container {
+            display: grid !important;
+            grid-template-columns: minmax(180px, 220px) minmax(220px, 260px) minmax(220px, 1fr) minmax(220px, 1fr) !important;
+            grid-template-rows: 1fr !important;
+            width: 100% !important;
+            max-width: 1500px !important;
+            height: calc(100vh - clamp(24px, 6vw, 48px)) !important;
+            overflow: hidden !important;
+            margin: 0 auto !important;
+          }
+          .admin-grid-container > * {
+            min-width: 0 !important;
+            min-height: 0 !important;
+            grid-row: auto !important;
+            grid-column: auto !important;
+          }
+          .holdsList,
+          .table {
+            max-height: none !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+          }
+          .card,
+          .cardBody,
+          .tableBody {
+            min-height: 0 !important;
+            overflow: hidden !important;
+          }
+        }
         
-        button:focus { outline: none; }
-        button:focus-visible { outline: none; }
+        button, [role="button"], input, select, label, a, summary {
+          outline: none !important;
+          -webkit-tap-highlight-color: transparent;
+        }
+        button:focus, button:focus-visible,
+        [role="button"]:focus, [role="button"]:focus-visible,
+        input:focus, input:focus-visible,
+        input[type="checkbox"]:focus, input[type="checkbox"]:focus-visible,
+        select:focus, select:focus-visible,
+        label:focus, a:focus, a:focus-visible {
+          outline: none !important;
+          box-shadow: none !important;
+        }
         button::-moz-focus-inner { border: 0; }
       `}</style>
 
@@ -1555,20 +2167,34 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={styles.footerRow}>
-                                <button style={styles.btnGhost} onClick={onExit}>back</button>
+                                <button style={styles.btnGhost} onClick={handleExit}>BACK</button>
                                 <input
                                     value={newHoldName}
                                     onChange={(e) => setNewHoldName(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && addHold()}
-                                    placeholder="new"
-                                    style={{ ...styles.input, flex: 1, minWidth: 0, padding: "6px 8px" }}
+                                    placeholder="NEW"
+                                    style={{ ...styles.input, flex: 1, minWidth: 0 }}
                                 />
                                 <button style={styles.btnPrimary} onClick={addHold}>+</button>
                             </div>
 
+                            <button
+                                type="button"
+                                style={{ ...styles.btnGhost, width: "100%" }}
+                                onClick={handleSave}
+                                title="Save all changes"
+                            >
+                                <SaveIcon />
+                                SAVE{hasUnsavedChanges ? " *" : ""}
+                            </button>
+
                             <div style={{ display: "flex", gap: 8 }}>
-                                <button style={{ ...styles.btnGhost, flex: 1 }} onClick={exportDb}>Export</button>
-                                <button style={{ ...styles.btnGhost, flex: 1 }} onClick={triggerImportDb}>Import</button>
+                                <button style={{ ...styles.btnGhost, flex: 1 }} onClick={exportDb}>EXPORT</button>
+                                <button style={{ ...styles.btnGhost, flex: 1 }} onClick={triggerImportDb}>IMPORT</button>
+                            </div>
+
+                            <div style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.3 }}>
+                                Import replaces all current data. Unsaved changes will be lost.
                             </div>
 
                             <div style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.2 }}>
@@ -1585,7 +2211,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                 {/* Hold panel */}
                 <Card style={styles.card}>
                     <div style={styles.tableBody}>
-                        <div style={styles.tableTitleCenter}>Hold</div>
+                        <div style={styles.tableTitleCenter}>HOLD</div>
 
                         {selectedProduct ? (
                             !editingHold ? (
@@ -1625,6 +2251,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                             <img
                                                 src={selectedCover}
                                                 alt=""
+                                                onClick={() => setZoomedImage(selectedCover)}
                                                 style={{
                                                     width: "100%",
                                                     maxHeight: 220,
@@ -1632,6 +2259,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                                     border: `1px solid ${theme.colors.borderLight}`,
                                                     borderRadius: 6,
                                                     background: theme.colors.cardBg,
+                                                    cursor: "zoom-in",
                                                 }}
                                             />
                                         ) : (
@@ -1648,7 +2276,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                             if (e.key === "Enter") saveRenameHold(selectedProduct);
                                             if (e.key === "Escape") cancelRenameHold();
                                         }}
-                                        style={{ ...styles.input, padding: "8px 10px" }}
+                                        style={styles.input}
                                         autoFocus
                                     />
                                     <div style={{ display: "flex", gap: 6 }}>
@@ -1658,7 +2286,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                 </div>
                             )
                         ) : (
-                            <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Select a hold</div>
+                            <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Select a Hold</div>
                         )}
                     </div>
                 </Card>
@@ -1674,7 +2302,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                         <AdminAngleRow styles={styles}
                                             key={a.id}
                                             angle={a}
-                                            isActive={selectedAngleId === a.id}
                                             onSelect={() => setSelectedAngleId(a.id)}
                                             onUpdate={(patch) => updateAngle(a.id, patch)}
                                             onRemove={() => removeAngle(a.id)}
@@ -1682,10 +2309,14 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                                 uploadTargetIdRef.current = a.id;
                                                 fileInputRef.current?.click();
                                             }}
+                                            onRemoveImage={async () => {
+                                                if (await askConfirm("Remove image?")) updateAngle(a.id, { drawing: null });
+                                            }}
+                                            onZoomImage={setZoomedImage}
                                         />
                                     ))}
                                     <button style={{ ...styles.btnGhost, marginTop: 6 }} onClick={() => addAngleForHold(selectedProduct, "main")}>
-                                        + Add Main angle
+                                        + Add Main Angle
                                     </button>
                                 </>
                             ) : (
@@ -1706,7 +2337,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                         <AdminAngleRow styles={styles}
                                             key={a.id}
                                             angle={a}
-                                            isActive={selectedAngleId === a.id}
                                             onSelect={() => setSelectedAngleId(a.id)}
                                             onUpdate={(patch) => updateAngle(a.id, patch)}
                                             onRemove={() => removeAngle(a.id)}
@@ -1714,10 +2344,14 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                                 uploadTargetIdRef.current = a.id;
                                                 fileInputRef.current?.click();
                                             }}
+                                            onRemoveImage={async () => {
+                                                if (await askConfirm("Remove image?")) updateAngle(a.id, { drawing: null });
+                                            }}
+                                            onZoomImage={setZoomedImage}
                                         />
                                     ))}
                                     <button style={{ ...styles.btnGhost, marginTop: 6 }} onClick={() => addAngleForHold(selectedProduct, "stefan")}>
-                                        + Add Stefan angle
+                                        + Add Stefan Angle
                                     </button>
                                 </>
                             ) : (
@@ -1727,12 +2361,57 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                     </div>
                 </Card>
             </div>
+
+            {zoomedImage && (
+                <div style={styles.zoomOverlay} onClick={() => setZoomedImage(null)}>
+                    <button type="button" style={styles.zoomCloseBtn} onClick={(e) => { e.stopPropagation(); setZoomedImage(null); }}>×</button>
+                    <img src={zoomedImage} alt="Zoomed" style={styles.zoomImage} onClick={(e) => e.stopPropagation()} />
+                </div>
+            )}
+
+            {confirmState && (
+                <ConfirmDialog
+                    message={confirmState.message}
+                    styles={styles}
+                    onConfirm={() => closeConfirm(true)}
+                    onCancel={() => closeConfirm(false)}
+                />
+            )}
+        </div>
+    );
+}
+
+function ConfirmDialog({ message, styles, onConfirm, onCancel }) {
+    return (
+        <div
+            style={styles.confirmOverlay}
+            onClick={onCancel}
+        >
+            <div
+                style={styles.confirmCard}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") onConfirm();
+                    if (e.key === "Escape") onCancel();
+                }}
+            >
+                <div style={styles.confirmTitle}>CONFIRM ACTION</div>
+                <div style={styles.confirmMessage}>{message}</div>
+                <div style={styles.confirmActions}>
+                    <button type="button" style={{ ...styles.btnPrimary, minWidth: 72 }} onClick={onConfirm} autoFocus>
+                        OK
+                    </button>
+                    <button type="button" style={{ ...styles.btnGhost, minWidth: 84 }} onClick={onCancel}>
+                        CANCEL
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
 
 /* -------------------- ADMIN ROW: only angle value, no hold name -------------------- */
-function AdminAngleRow({ angle, isActive, onSelect, onUpdate, onRemove, onUpload, styles }) {
+function AdminAngleRow({ angle, onSelect, onUpdate, onRemove, onUpload, onRemoveImage, onZoomImage, styles }) {
     const [draft, setDraft] = useState(() => String(angle.value ?? 0));
 
     useEffect(() => {
@@ -1776,10 +2455,7 @@ function AdminAngleRow({ angle, isActive, onSelect, onUpdate, onRemove, onUpload
 
     return (
         <div
-            style={{
-                ...styles.adminAngleRow,
-                ...(isActive ? styles.adminAngleRowActive : null),
-            }}
+            style={styles.adminAngleRow}
             onClick={onSelect}
             role="button"
             tabIndex={0}
@@ -1814,13 +2490,16 @@ function AdminAngleRow({ angle, isActive, onSelect, onUpdate, onRemove, onUpload
 
                 {angle.drawing && (
                     <>
-                        <img src={angle.drawing} alt="" style={{ width: 28, height: 28, objectFit: "cover", borderRadius: 4 }} />
+                        <img 
+                            src={angle.drawing} 
+                            alt="" 
+                            onClick={() => onZoomImage?.(angle.drawing)}
+                            style={{ width: 28, height: 28, objectFit: "cover", borderRadius: 4, cursor: "zoom-in" }} 
+                        />
                         <button
                             type="button"
                             style={{ ...styles.btnSmallGhost28, width: 28, padding: 0 }}
-                            onClick={() => {
-                                if (window.confirm("Remove image?")) onUpdate({ drawing: null });
-                            }}
+                            onClick={onRemoveImage}
                             title="Remove image"
                         >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
@@ -1878,10 +2557,14 @@ const getStyles = (theme) => ({
         borderRadius: 8,
         boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
     },
-    zoomBtn: {
+    viewerTools: {
         position: "absolute",
         bottom: 12,
         right: 12,
+        display: "flex",
+        gap: 8,
+    },
+    viewerToolBtn: {
         width: 36,
         height: 36,
         borderRadius: "50%",
@@ -1893,6 +2576,7 @@ const getStyles = (theme) => ({
         cursor: "pointer",
         boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
         color: theme.colors.textPrimary,
+        padding: 0,
     },
     zoomCloseBtn: {
         position: "absolute",
@@ -1910,6 +2594,50 @@ const getStyles = (theme) => ({
         justifyContent: "center",
         cursor: "pointer",
         backdropFilter: "blur(4px)",
+    },
+    confirmOverlay: {
+        position: "fixed",
+        inset: 0,
+        zIndex: 10000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        background: "rgba(0,0,0,0.32)",
+        backdropFilter: "blur(3px)",
+        WebkitBackdropFilter: "blur(3px)",
+    },
+    confirmCard: {
+        width: "100%",
+        maxWidth: 360,
+        background: theme.colors.cardBg,
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: 10,
+        padding: 24,
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        boxSizing: "border-box",
+    },
+    confirmTitle: {
+        fontSize: "clamp(10px, 2vw, 11px)",
+        fontWeight: 700,
+        letterSpacing: "0.05em",
+        color: theme.colors.textTertiary,
+        textAlign: "center",
+    },
+    confirmMessage: {
+        fontSize: 13,
+        lineHeight: 1.4,
+        color: theme.colors.textPrimary,
+        textAlign: "center",
+        padding: "4px 0",
+    },
+    confirmActions: {
+        display: "flex",
+        gap: 8,
+        justifyContent: "center",
+        marginTop: 4,
     },
     adminPage: {
         minHeight: "100vh",
@@ -2025,6 +2753,7 @@ const getStyles = (theme) => ({
         width: 14,
         height: 14,
         cursor: "pointer",
+        accentColor: theme.colors.textPrimary,
     },
     holdName: {
         fontSize: "clamp(12px, 2vw, 13px)",
@@ -2053,41 +2782,73 @@ const getStyles = (theme) => ({
         border: `1px solid ${theme.colors.buttonGhostBorder}`,
         background: theme.colors.buttonGhostBg,
         borderRadius: 4,
-        padding: "8px 12px",
+        height: 36,
+        padding: "0 12px",
+        boxSizing: "border-box",
         cursor: "pointer",
         fontSize: "clamp(11px, 2vw, 12px)",
         color: theme.colors.buttonGhostText,
         transition: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        textAlign: "center",
+        lineHeight: 1,
     },
     btnDanger: {
         border: `1px solid ${theme.colors.borderMedium}`,
         background: theme.colors.buttonGhostBg,
         borderRadius: 4,
-        padding: "8px 12px",
+        height: 36,
+        padding: "0 12px",
+        boxSizing: "border-box",
         cursor: "pointer",
         fontSize: "clamp(11px, 2vw, 12px)",
         color: theme.colors.textSecondary,
         transition: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        textAlign: "center",
+        lineHeight: 1,
     },
     btnPrimary: {
         border: `1px solid ${theme.colors.buttonPrimaryBorder}`,
         background: theme.colors.buttonPrimaryBg,
         borderRadius: 4,
-        padding: "8px 14px",
+        height: 36,
+        padding: "0 14px",
+        boxSizing: "border-box",
         cursor: "pointer",
         fontSize: "clamp(11px, 2vw, 12px)",
         color: theme.colors.buttonPrimaryText,
         transition: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        textAlign: "center",
+        lineHeight: 1,
     },
     btnSmallGhost: {
         border: `1px solid ${theme.colors.buttonGhostBorder}`,
         background: theme.colors.buttonGhostBg,
         borderRadius: 4,
-        padding: "6px 10px",
+        height: 28,
+        padding: "0 10px",
+        boxSizing: "border-box",
         cursor: "pointer",
         fontSize: "clamp(10px, 2vw, 11px)",
         color: theme.colors.buttonGhostText,
         transition: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        textAlign: "center",
+        lineHeight: 1,
     },
     btnSmallGhost28: {
         border: `1px solid ${theme.colors.buttonGhostBorder}`,
@@ -2108,11 +2869,19 @@ const getStyles = (theme) => ({
         border: `1px solid ${theme.colors.buttonPrimaryBorder}`,
         background: theme.colors.buttonPrimaryBg,
         borderRadius: 4,
-        padding: "6px 10px",
+        height: 28,
+        padding: "0 10px",
+        boxSizing: "border-box",
         cursor: "pointer",
         fontSize: "clamp(10px, 2vw, 11px)",
         color: theme.colors.buttonPrimaryText,
         transition: "none",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        textAlign: "center",
+        lineHeight: 1,
     },
 
     tableBody: {
@@ -2190,13 +2959,9 @@ const getStyles = (theme) => ({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 6, /* Reduced from 10 */
-        padding: "3px 0", /* Reduced from "8px 0" */
+        gap: 6,
+        padding: "3px 0",
         cursor: "pointer",
-        borderBottom: `1px solid ${theme.colors.activeBg}`,
-    },
-    adminAngleRowActive: {
-        background: theme.colors.hoverBg,
     },
     adminAngleLabel: {
         fontWeight: 500,
@@ -2265,7 +3030,9 @@ const getStyles = (theme) => ({
     input: {
         border: `1px solid ${theme.colors.borderMedium}`,
         borderRadius: 4,
-        padding: "8px 10px",
+        height: 36,
+        padding: "0 10px",
+        boxSizing: "border-box",
         fontSize: "clamp(11px, 2vw, 12px)",
         outline: "none",
         background: theme.colors.inputBg,

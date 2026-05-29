@@ -4,3 +4,9 @@ dist/
 .env.local
 .DS_Store
 *.log
+
+# Exported / local database dumps — must never be committed
+base.json
+Base_*.json
+angles-db.json
+*-db.json
