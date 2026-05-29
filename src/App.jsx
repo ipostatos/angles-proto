@@ -2104,13 +2104,22 @@ function WorkModeRow({ row, checked, onToggle, t }) {
         >
             <span style={{ fontWeight: 700, fontSize: 15, color: checked ? t.strike : t.text, textDecoration: checked ? "line-through" : "none" }}>{toAngleLabel(row.value)}</span>
             <span style={{ fontSize: 13, color: checked ? t.strike : t.sub, textDecoration: checked ? "line-through" : "none" }}>{row.hold}</span>
-            <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => onToggle(row.id, e)}
-                onClick={(e) => e.stopPropagation()}
-                style={{ width: 18, height: 18, cursor: "pointer", accentColor: t.text, justifySelf: "center" }}
-            />
+            <div
+                onClick={(e) => onToggle(row.id, e)}
+                style={{
+                    width: 22, height: 22, borderRadius: 4, justifySelf: "center",
+                    border: `2px solid ${checked ? t.text : t.border}`,
+                    background: checked ? t.text : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                }}
+            >
+                {checked && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <polyline points="2,6 5,9 10,3" stroke={t.card} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                )}
+            </div>
         </div>
     );
 }
