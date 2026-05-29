@@ -1470,8 +1470,8 @@ export default function App() {
 
             {workMode && (
                 <WorkModeOverlay
-                    main={selectedAngles.main}
-                    stefan={selectedAngles.stefan}
+                    main={printMode !== "stefan" ? selectedAngles.main : []}
+                    stefan={printMode !== "main" ? selectedAngles.stefan : []}
                     checkedAngles={checkedAngles}
                     onToggleCheck={toggleAngleCheck}
                     onExit={() => setWorkMode(false)}
