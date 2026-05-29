@@ -721,9 +721,10 @@ export default function App() {
         setSelectedHolds((prev) => {
             const next = new Set(prev);
             if (next.has(name)) next.delete(name);
-            else { next.add(name); setHoldSearch(""); }
+            else next.add(name);
             return next;
         });
+        setHoldSearch("");
     }, []);
 
     const clearSelection = useCallback(() => {
