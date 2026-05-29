@@ -954,14 +954,25 @@ export default function App() {
              padding: 0 !important;
           }
           
-          /* Footer Actions: one clean row, aligned */
+          /* Footer Actions: fixed at bottom on mobile */
           .footerRow {
+             position: fixed !important;
+             bottom: 0 !important;
+             left: 0 !important;
+             right: 0 !important;
+             z-index: 100 !important;
              display: flex !important;
              flex-wrap: nowrap !important;
              gap: 8px !important;
-             margin-top: 12px !important;
-             padding-top: 12px !important;
+             margin-top: 0 !important;
+             padding: 10px 12px env(safe-area-inset-bottom, 0px) !important;
+             background: #ffffff !important;
+             border-top: 1px solid #e8e8e8 !important;
              align-items: center !important;
+          }
+          /* Compensate for fixed footer height */
+          .app-page {
+             padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
           }
           .footerBtn {
              height: 44px !important;
