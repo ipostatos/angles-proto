@@ -459,17 +459,12 @@ async function sha256Hex(text) {
     return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// First-run admin password policy: min length + reject obvious weak choices.
-// NOTE: client-side hashing is not a real security boundary (see SECURITY_AUDIT.md);
-// this only discourages trivial defaults.
-const WEAK_PASSWORDS = new Set([
-    "admin", "password", "12345678", "11111111", "00000000",
-    "qwerty", "qwertyui", "admin123", "password1", "letmein",
-]);
+// PIN policy: exactly 4 digits.
+const WEAK_PINS = new Set(["0000", "1111", "2222", "3333", "4444", "5555", "6666", "7777", "8888", "9999", "1234", "4321", "0123"]);
 function isStrongAdminPassword(pw) {
     const p = String(pw ?? "");
-    if (p.length < 8) return false;
-    if (WEAK_PASSWORDS.has(p.toLowerCase())) return false;
+    if (!/^\d{4}$/.test(p)) return false;
+    if (WEAK_PINS.has(p)) return false;
     return true;
 }
 
@@ -622,7 +617,7 @@ export default function App() {
         try {
             if (!storedHash) {
                 if (!isStrongAdminPassword(loginPass)) {
-                    shake("Минимум 8 символов, не простое слово");
+                    shake("4 digits, not all the same");
                     return;
                 }
                 try {
@@ -1514,22 +1509,24 @@ export default function App() {
                         {loginMode === "setup" ? (
                             <>
                                 <div style={{ textAlign: "center" }}>
-                                    <div style={{ fontSize: 20, marginBottom: 6 }}>🔐</div>
-                                    <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ПЕРВЫЙ ВХОД</div>
+                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={theme.colors.textPrimary} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 8 }}>
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                    </svg>
+                                    <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>FIRST LOGIN</div>
                                     <div style={{ fontSize: 12, color: theme.colors.textSecondary, lineHeight: 1.5 }}>
-                                        Придумайте пароль администратора.<br />
-                                        Минимум 8 символов.
+                                        Create a 4-digit admin PIN.
                                     </div>
                                 </div>
-                                <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="НОВЫЙ ПАРОЛЬ" styles={styles} />
+                                <PasswordInput value={loginPass} onChange={(v) => { if (/^\d{0,4}$/.test(v)) setLoginPass(v); }} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="PIN" styles={styles} inputMode="numeric" maxLength={4} />
                                 {loginError && (
                                     <div style={{ fontSize: 11, color: "#e53e3e", textAlign: "center", marginTop: -4 }}>
                                         {loginError}
                                     </div>
                                 )}
                                 <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4 }}>
-                                    <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>ЗАДАТЬ</button>
-                                    <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>ОТМЕНА</button>
+                                    <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>SET</button>
+                                    <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>CANCEL</button>
                                 </div>
                             </>
                         ) : (
@@ -1565,7 +1562,7 @@ export default function App() {
     );
 }
 
-function PasswordInput({ value, onChange, show, onToggle, placeholder, styles, autoFocus }) {
+function PasswordInput({ value, onChange, show, onToggle, placeholder, styles, autoFocus, inputMode, maxLength }) {
     return (
         <div style={{ position: "relative" }}>
             <input
@@ -1574,6 +1571,8 @@ function PasswordInput({ value, onChange, show, onToggle, placeholder, styles, a
                 placeholder={placeholder}
                 type={show ? "text" : "password"}
                 autoFocus={autoFocus}
+                inputMode={inputMode}
+                maxLength={maxLength}
                 className="login-modal-input"
                 style={{ ...styles.input, textAlign: "center", background: "#fff", boxShadow: "none", width: "100%", boxSizing: "border-box", paddingRight: 36 }}
             />
