@@ -746,6 +746,7 @@ export default function App() {
     }, [selectedHolds]);
 
     const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [workMode, setWorkMode] = useState(false);
 
     const clearSelection = useCallback(() => {
         setShowClearConfirm(true);
@@ -1304,6 +1305,27 @@ export default function App() {
 
                             <button
                                 type="button"
+                                onClick={() => setWorkMode(true)}
+                                title="Work mode"
+                                aria-label="Work mode"
+                                data-print-hide
+                                className="iconBtn"
+                                style={{
+                                    ...styles.btnGhost,
+                                    width: 36,
+                                    height: 36,
+                                    padding: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flex: "0 0 auto",
+                                }}
+                            >
+                                <PhoneIcon />
+                            </button>
+
+                            <button
+                                type="button"
                                 onClick={() => window.print()}
                                 title="Print MAIN and STEFAN tables"
                                 aria-label="Print"
@@ -1445,6 +1467,17 @@ export default function App() {
                     />
                 )}
             </div>
+
+            {workMode && (
+                <WorkModeOverlay
+                    main={selectedAngles.main}
+                    stefan={selectedAngles.stefan}
+                    checkedAngles={checkedAngles}
+                    onToggleCheck={toggleAngleCheck}
+                    onExit={() => setWorkMode(false)}
+                    styles={styles}
+                />
+            )}
 
             {showClearConfirm && (
                 <ConfirmDialog
@@ -1782,6 +1815,15 @@ function PrintModeSelect({ value, onChange, options, styles }) {
     );
 }
 
+function PhoneIcon() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <line x1="12" y1="18" x2="12.01" y2="18"/>
+        </svg>
+    );
+}
+
 function ZoomIcon() {
     return (
         <svg
@@ -1859,6 +1901,69 @@ function PrintTableSection({ title, rows, maxColumnsPerRow, className = "" }) {
                     ))}
                 </div>
             ))}
+        </div>
+    );
+}
+
+function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, styles }) {
+    return (
+        <div style={{
+            position: "fixed", inset: 0, zIndex: 200,
+            background: "#f5f7fa",
+            display: "flex", flexDirection: "column",
+            boxSizing: "border-box",
+        }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 80px" }}>
+                {main.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#888", textAlign: "center", marginBottom: 8 }}>MAIN</div>
+                        {main.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} styles={styles} />)}
+                    </div>
+                )}
+                {stefan.length > 0 && (
+                    <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#888", textAlign: "center", marginBottom: 8 }}>STEFAN</div>
+                        {stefan.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} styles={styles} />)}
+                    </div>
+                )}
+                {main.length === 0 && stefan.length === 0 && (
+                    <div style={{ textAlign: "center", color: "#aaa", marginTop: 60, fontSize: 14 }}>No holds selected</div>
+                )}
+            </div>
+            <div style={{
+                position: "fixed", bottom: 0, left: 0, right: 0,
+                padding: "10px 12px env(safe-area-inset-bottom, 0px)",
+                background: "#ffffff", borderTop: "1px solid #e8e8e8",
+            }}>
+                <button onClick={onExit} style={{ ...styles.btnGhost, width: "100%", height: 44, fontSize: 14 }}>
+                    ← EXIT
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function WorkModeRow({ row, checked, onToggle, styles }) {
+    return (
+        <div
+            onClick={(e) => onToggle(row.id, e)}
+            style={{
+                display: "grid", gridTemplateColumns: "64px 1fr 36px",
+                alignItems: "center", gap: 4,
+                background: "#fff", border: "1px solid #e8e8e8",
+                borderRadius: 4, padding: "6px 10px", marginBottom: 4,
+                cursor: "pointer",
+            }}
+        >
+            <span style={{ ...styles.angleCell, textDecoration: checked ? "line-through" : "none", opacity: checked ? 0.35 : 1 }}>{toAngleLabel(row.value)}</span>
+            <span style={{ ...styles.nameCell, textDecoration: checked ? "line-through" : "none", opacity: checked ? 0.35 : 1 }}>{row.hold}</span>
+            <input
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => onToggle(row.id, e)}
+                onClick={(e) => e.stopPropagation()}
+                style={{ width: 18, height: 18, cursor: "pointer", accentColor: "#1a1a1a", justifySelf: "center" }}
+            />
         </div>
     );
 }
