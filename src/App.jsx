@@ -2143,16 +2143,28 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             padding: 10px 0 !important;
           }
 
-          /* Search pill compact on admin mobile */
-          .admin-page-wrapper .searchPill {
-            height: 34px !important;
-            min-height: 34px !important;
+          /* Search bar: fixed at top in admin mobile */
+          .adminSearchWrap {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 50 !important;
+            background: #f5f7fa !important;
+            padding: 8px 12px 6px !important;
+          }
+          .admin-grid-container > :first-child .cardBody {
+            padding-top: calc(28px + 22px) !important;
+          }
+          .adminSearchWrap .searchPill {
+            height: 28px !important;
+            min-height: 28px !important;
             padding: 0 10px !important;
           }
-          .admin-page-wrapper .searchPill input {
+          .adminSearchWrap .searchPill input {
             min-height: 0 !important;
-            height: 34px !important;
-            font-size: 14px !important;
+            height: 28px !important;
+            font-size: 13px !important;
           }
 
           .adminFooter {
@@ -2244,10 +2256,11 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                 {/* Left: holds list */}
                 <Card style={styles.card}>
                     <div style={styles.cardBody}>
-                        <div style={styles.searchWrap}>
+                        <div style={styles.searchWrap} className="searchWrap adminSearchWrap">
                             <div
                                 style={styles.searchPill}
                                 role="search"
+                                className="searchPill"
                                 onMouseDown={(e) => {
                                     e.preventDefault();
                                     adminSearchRef.current?.focus();
