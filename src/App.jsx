@@ -1034,7 +1034,7 @@ export default function App() {
           }
           /* Offset the card body so content starts below the fixed search */
           .holdsCardBody {
-             padding-top: calc(28px + 32px) !important;
+             padding-top: calc(28px + 30px) !important;
           }
           .searchPill {
              height: 28px !important;
