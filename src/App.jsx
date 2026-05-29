@@ -1050,6 +1050,12 @@ export default function App() {
             min-height: 44px;
             touch-action: manipulation;
           }
+          /* Viewer tool buttons are fixed-size circles — exempt from min-height */
+          .viewerToolBtn {
+            min-height: 0 !important;
+            width: 44px !important;
+            height: 44px !important;
+          }
           
           input { font-size: 16px !important; }
         }
@@ -1319,6 +1325,7 @@ export default function App() {
                                         type="button"
                                         onClick={() => printImage(viewerSrc)}
                                         style={styles.viewerToolBtn}
+                                        className="viewerToolBtn"
                                         title="Print drawing"
                                     >
                                         <PrinterIcon size={20} />
@@ -1327,6 +1334,7 @@ export default function App() {
                                         type="button"
                                         onClick={() => setZoomedImage(viewerSrc)}
                                         style={styles.viewerToolBtn}
+                                        className="viewerToolBtn"
                                         title="Zoom image"
                                     >
                                         <ZoomIcon />
