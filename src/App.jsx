@@ -1016,17 +1016,23 @@ export default function App() {
              margin-right: 0 !important;
           }
           
-          /* Search Bar: fixed at top with frosted glass */
+          /* Search Bar: fixed at top */
           .searchWrap {
              position: fixed !important;
              top: 0 !important;
              left: 0 !important;
              right: 0 !important;
              z-index: 50 !important;
-             background: rgba(245, 247, 250, 0.72) !important;
-             backdrop-filter: blur(10px) !important;
-             -webkit-backdrop-filter: blur(10px) !important;
-             padding: 8px 12px 6px !important;
+             background: #f5f7fa !important;
+             padding: 8px 12px 0 !important;
+          }
+          /* Fade gradient below search */
+          .searchWrap::after {
+             content: "" !important;
+             display: block !important;
+             height: 16px !important;
+             background: linear-gradient(to bottom, #f5f7fa, rgba(245,247,250,0)) !important;
+             margin: 0 -12px !important;
           }
           /* Offset the card body so content starts below the fixed search */
           .main-grid > :first-child .cardBody {
@@ -2220,17 +2226,22 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             padding: 10px 0 !important;
           }
 
-          /* Search bar: fixed at top with frosted glass in admin mobile */
+          /* Search bar: fixed at top in admin mobile */
           .adminSearchWrap {
             position: fixed !important;
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
             z-index: 50 !important;
-            background: rgba(245, 247, 250, 0.72) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            padding: 8px 12px 6px !important;
+            background: #f5f7fa !important;
+            padding: 8px 12px 0 !important;
+          }
+          .adminSearchWrap::after {
+            content: "" !important;
+            display: block !important;
+            height: 16px !important;
+            background: linear-gradient(to bottom, #f5f7fa, rgba(245,247,250,0)) !important;
+            margin: 0 -12px !important;
           }
           .admin-grid-container > :first-child .cardBody {
             padding-top: calc(28px + 22px) !important;
