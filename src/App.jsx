@@ -997,13 +997,20 @@ export default function App() {
              margin-right: 0 !important;
           }
           
-          /* Search Bar: compact */
+          /* Search Bar: sticky top */
+          .searchWrap {
+             position: sticky !important;
+             top: 0 !important;
+             z-index: 10 !important;
+             background: #ffffff !important;
+             padding-bottom: 6px !important;
+          }
           .searchPill {
              height: 28px !important;
              min-height: 28px !important;
              border: 1px solid #e0e0e0 !important;
              background: #fff !important;
-             margin-bottom: 6px !important;
+             margin-bottom: 0 !important;
              display: flex !important;
              align-items: center !important;
              padding: 0 10px !important;
