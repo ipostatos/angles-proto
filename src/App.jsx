@@ -734,9 +734,16 @@ export default function App() {
         prevSizeRef.current = size;
     }, [selectedHolds]);
 
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+
     const clearSelection = useCallback(() => {
+        setShowClearConfirm(true);
+    }, []);
+
+    const confirmClear = useCallback(() => {
         setSelectedHolds(new Set());
         setActiveAngleId(null);
+        setShowClearConfirm(false);
     }, []);
 
     const cycleSortMain = useCallback(() => {
@@ -1426,6 +1433,15 @@ export default function App() {
                     />
                 )}
             </div>
+
+            {showClearConfirm && (
+                <ConfirmDialog
+                    message="Clear selection?"
+                    styles={styles}
+                    onConfirm={confirmClear}
+                    onCancel={() => setShowClearConfirm(false)}
+                />
+            )}
 
             {/* Zoom Overlay */}
             {zoomedImage && (
