@@ -1001,13 +1001,19 @@ export default function App() {
              margin-right: 0 !important;
           }
           
-          /* Search Bar: sticky top */
+          /* Search Bar: fixed at top */
           .searchWrap {
-             position: sticky !important;
+             position: fixed !important;
              top: 0 !important;
-             z-index: 10 !important;
-             background: #ffffff !important;
-             padding-bottom: 6px !important;
+             left: 0 !important;
+             right: 0 !important;
+             z-index: 50 !important;
+             background: #f5f7fa !important;
+             padding: 8px 12px 6px !important;
+          }
+          /* Offset the card body so content starts below the fixed search */
+          .main-grid > :first-child .cardBody {
+             padding-top: calc(28px + 22px) !important;
           }
           .searchPill {
              height: 28px !important;
