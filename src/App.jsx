@@ -2263,7 +2263,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             line-height: 1.2 !important;
           }
           .admin-page-wrapper {
-            padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)) !important;
+            padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px)) !important;
           }
         }
         /* MOBILE ADAPTATION END */
