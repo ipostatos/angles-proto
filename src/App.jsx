@@ -999,8 +999,8 @@ export default function App() {
           
           /* Search Bar: compact */
           .searchPill {
-             height: 34px !important;
-             min-height: 34px !important;
+             height: 28px !important;
+             min-height: 28px !important;
              border: 1px solid #e0e0e0 !important;
              background: #fff !important;
              margin-bottom: 6px !important;
@@ -1009,8 +1009,8 @@ export default function App() {
              padding: 0 10px !important;
           }
           .searchInput {
-             font-size: 14px !important;
-             height: 34px !important;
+             font-size: 13px !important;
+             height: 28px !important;
              min-height: 0 !important;
           }
 
