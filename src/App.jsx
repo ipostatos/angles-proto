@@ -591,6 +591,9 @@ export default function App() {
     const [showExitWorkConfirm, setShowExitWorkConfirm] = useState(false);
     const [showSavedModal, setShowSavedModal] = useState(false);
     const [showDiscardProgressConfirm, setShowDiscardProgressConfirm] = useState(false);
+    const [workTheme, setWorkTheme] = useState(() => {
+        try { return localStorage.getItem("angles_work_theme") || "light"; } catch { return "light"; }
+    });
 
     const openAdmin = useCallback(() => {
         if (hasAdminSession()) {
@@ -1557,6 +1560,12 @@ export default function App() {
                     onSave={saveProgress}
                     styles={styles}
                     showSaved={showSavedModal}
+                    theme={workTheme}
+                    onToggleTheme={() => {
+                        const next = workTheme === "light" ? "dark" : "light";
+                        setWorkTheme(next);
+                        try { localStorage.setItem("angles_work_theme", next); } catch {}
+                    }}
                 />
             )}
 
@@ -2007,41 +2016,52 @@ function PrintTableSection({ title, rows, maxColumnsPerRow, className = "" }) {
     );
 }
 
-function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, onSave, styles, showSaved }) {
+function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, onSave, styles, showSaved, theme, onToggleTheme }) {
+    const dark = theme === "dark";
+    const t = {
+        bg: dark ? "#111111" : "#f5f7fa",
+        card: dark ? "#1e1e1e" : "#ffffff",
+        border: dark ? "#333333" : "#e8e8e8",
+        text: dark ? "#e8e8e8" : "#1a1a1a",
+        sub: dark ? "#999999" : "#888888",
+        strike: dark ? "#555" : "#bbb",
+        footerBg: dark ? "#1a1a1a" : "#ffffff",
+        footerBorder: dark ? "#2a2a2a" : "#e8e8e8",
+        btnBg: dark ? "#2a2a2a" : "#ffffff",
+        btnBorder: dark ? "#3a3a3a" : "#dddddd",
+    };
     return (
-        <div style={{
-            position: "fixed", inset: 0, zIndex: 200,
-            background: "#f5f7fa",
-            display: "flex", flexDirection: "column",
-            boxSizing: "border-box",
-        }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: t.bg, display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
             <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 80px" }}>
                 {main.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#888", textAlign: "center", marginBottom: 8 }}>MAIN</div>
-                        {main.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} styles={styles} />)}
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: t.sub, textAlign: "center", marginBottom: 8 }}>MAIN</div>
+                        {main.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} t={t} />)}
                     </div>
                 )}
                 {stefan.length > 0 && (
                     <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#888", textAlign: "center", marginBottom: 8 }}>STEFAN</div>
-                        {stefan.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} styles={styles} />)}
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: t.sub, textAlign: "center", marginBottom: 8 }}>STEFAN</div>
+                        {stefan.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} t={t} />)}
                     </div>
                 )}
                 {main.length === 0 && stefan.length === 0 && (
-                    <div style={{ textAlign: "center", color: "#aaa", marginTop: 60, fontSize: 14 }}>No holds selected</div>
+                    <div style={{ textAlign: "center", color: t.sub, marginTop: 60, fontSize: 14 }}>No holds selected</div>
                 )}
             </div>
             <div style={{
                 position: "fixed", bottom: 0, left: 0, right: 0,
                 padding: "10px 12px env(safe-area-inset-bottom, 0px)",
-                background: "#ffffff", borderTop: "1px solid #e8e8e8",
+                background: t.footerBg, borderTop: `1px solid ${t.footerBorder}`,
                 display: "flex", gap: 8,
             }}>
-                <button onClick={onSave} style={{ ...styles.btnGhost, width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }} title="Save progress">
-                    <SaveIcon />
+                <button onClick={onToggleTheme} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer" }} title="Toggle theme">
+                    {dark
+                        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    }
                 </button>
-                <button onClick={onExit} style={{ ...styles.btnGhost, flex: 1, height: 44, fontSize: 14 }}>
+                <button onClick={onExit} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, flex: 1, height: 44, fontSize: 14, cursor: "pointer" }}>
                     ← EXIT
                 </button>
             </div>
@@ -2070,26 +2090,26 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, o
     );
 }
 
-function WorkModeRow({ row, checked, onToggle, styles }) {
+function WorkModeRow({ row, checked, onToggle, t }) {
     return (
         <div
             onClick={(e) => onToggle(row.id, e)}
             style={{
                 display: "grid", gridTemplateColumns: "64px 1fr 36px",
                 alignItems: "center", gap: 4,
-                background: "#fff", border: "1px solid #e8e8e8",
-                borderRadius: 4, padding: "6px 10px", marginBottom: 4,
+                background: t.card, border: `1px solid ${t.border}`,
+                borderRadius: 4, padding: "8px 10px", marginBottom: 4,
                 cursor: "pointer",
             }}
         >
-            <span style={{ ...styles.angleCell, textDecoration: checked ? "line-through" : "none", opacity: checked ? 0.35 : 1 }}>{toAngleLabel(row.value)}</span>
-            <span style={{ ...styles.nameCell, textDecoration: checked ? "line-through" : "none", opacity: checked ? 0.35 : 1 }}>{row.hold}</span>
+            <span style={{ fontWeight: 700, fontSize: 15, color: checked ? t.strike : t.text, textDecoration: checked ? "line-through" : "none" }}>{toAngleLabel(row.value)}</span>
+            <span style={{ fontSize: 13, color: checked ? t.strike : t.sub, textDecoration: checked ? "line-through" : "none" }}>{row.hold}</span>
             <input
                 type="checkbox"
                 checked={checked}
                 onChange={(e) => onToggle(row.id, e)}
                 onClick={(e) => e.stopPropagation()}
-                style={{ width: 18, height: 18, cursor: "pointer", accentColor: "#1a1a1a", justifySelf: "center" }}
+                style={{ width: 18, height: 18, cursor: "pointer", accentColor: t.text, justifySelf: "center" }}
             />
         </div>
     );
