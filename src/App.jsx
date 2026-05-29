@@ -1024,11 +1024,11 @@ export default function App() {
           .searchFade {
              display: block !important;
              position: fixed !important;
-             top: 44px !important;
+             top: 40px !important;
              left: 0 !important;
              right: 0 !important;
-             height: 20px !important;
-             background: linear-gradient(to bottom, #f5f7fa, rgba(245,247,250,0)) !important;
+             height: 28px !important;
+             background: linear-gradient(to bottom, #f5f7fa 30%, rgba(245,247,250,0) 100%) !important;
              z-index: 49 !important;
              pointer-events: none !important;
           }
