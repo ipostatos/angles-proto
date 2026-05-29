@@ -2100,6 +2100,21 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
           .adminAngleRow {
             padding: 10px 0 !important;
           }
+
+          .adminFooter {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 100 !important;
+            background: #ffffff !important;
+            border-top: 1px solid #e8e8e8 !important;
+            padding: 10px 12px env(safe-area-inset-bottom, 0px) !important;
+            gap: 8px !important;
+          }
+          .admin-page-wrapper {
+            padding-bottom: calc(180px + env(safe-area-inset-bottom, 0px)) !important;
+          }
         }
         /* MOBILE ADAPTATION END */
 
@@ -2205,7 +2220,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                         <input ref={importDbInputRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={handleImportDb} />
                         <input ref={holdCoverInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleHoldCoverUpload} />
 
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div className="adminFooter" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             <div style={styles.footerRow}>
                                 <button style={styles.btnGhost} onClick={handleExit}>BACK</button>
                                 <input
