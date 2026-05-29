@@ -1034,7 +1034,7 @@ export default function App() {
           }
           /* Offset the card body so content starts below the fixed search */
           .holdsCardBody {
-             padding-top: calc(28px + 30px) !important;
+             padding-top: calc(28px + 20px) !important;
           }
           .searchPill {
              height: 28px !important;
@@ -2229,6 +2229,9 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             padding: 10px 0 !important;
           }
 
+          .holdsCardBody {
+            padding-top: calc(28px + 20px) !important;
+          }
           /* Search bar: fixed at top in admin mobile */
           .adminSearchWrap {
             position: fixed !important;
