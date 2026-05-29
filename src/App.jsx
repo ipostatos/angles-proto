@@ -542,6 +542,7 @@ export default function App() {
     const [showLogin, setShowLogin] = useState(false);
     const [loginUser, setLoginUser] = useState("admin");
     const [loginPass, setLoginPass] = useState("");
+    const [loginShake, setLoginShake] = useState(false);
     // Keeps admin mounted after one-time session token is consumed on AdminPage mount
     const [adminAuthed, setAdminAuthed] = useState(false);
     const prevRouteRef = useRef(null);
@@ -621,11 +622,14 @@ export default function App() {
             if (loginUser === "admin" && hash === storedHash) {
                 finish();
             } else {
-                toast.error("Wrong credentials");
+                setLoginShake(true);
+                setLoginPass("");
+                setTimeout(() => setLoginShake(false), 600);
             }
         } catch (err) {
             console.warn("Login failed:", err);
-            toast.error("Login failed. Please try again.");
+            setLoginShake(true);
+            setTimeout(() => setLoginShake(false), 600);
         }
     }, [loginUser, loginPass]);
 
@@ -1417,6 +1421,22 @@ export default function App() {
                     onClick={() => setShowLogin(false)}
                 >
                     <style>{`
+                        @keyframes loginShake {
+                            0%   { transform: translateX(0); }
+                            15%  { transform: translateX(-8px); }
+                            35%  { transform: translateX(7px); }
+                            55%  { transform: translateX(-5px); }
+                            75%  { transform: translateX(4px); }
+                            90%  { transform: translateX(-2px); }
+                            100% { transform: translateX(0); }
+                        }
+                        .login-modal-shake {
+                            animation: loginShake 0.55s ease;
+                        }
+                        .login-modal-error .login-modal-input {
+                            border-color: #e53e3e !important;
+                            background: #fff5f5 !important;
+                        }
                         .login-modal-input:focus,
                         .login-modal-input:focus-visible {
                             background: ${theme.colors.inputBg} !important;
@@ -1438,11 +1458,12 @@ export default function App() {
                             if (e.key === "Enter") submitLogin();
                             if (e.key === "Escape") setShowLogin(false);
                         }}
+                        className={`${loginShake ? "login-modal-shake login-modal-error" : ""}`}
                         style={{
                             width: "100%",
                             maxWidth: 300,
                             background: theme.colors.cardBg,
-                            border: `1px solid ${theme.colors.border}`,
+                            border: `1px solid ${loginShake ? "#e53e3e" : theme.colors.border}`,
                             borderRadius: 8,
                             padding: 24,
                             display: "flex",
