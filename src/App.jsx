@@ -585,6 +585,11 @@ export default function App() {
     const [adminAuthed, setAdminAuthed] = useState(false);
     const prevRouteRef = useRef(null);
 
+    const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [workMode, setWorkMode] = useState(false);
+    const [savedProgress, setSavedProgress] = useState(() => loadWorkProgress());
+    const [showExitWorkConfirm, setShowExitWorkConfirm] = useState(false);
+
     const openAdmin = useCallback(() => {
         if (hasAdminSession()) {
             window.location.hash = "#/admin";
@@ -800,11 +805,6 @@ export default function App() {
         if (size > prevSizeRef.current) setHoldSearch("");
         prevSizeRef.current = size;
     }, [selectedHolds]);
-
-    const [showClearConfirm, setShowClearConfirm] = useState(false);
-    const [workMode, setWorkMode] = useState(false);
-    const [savedProgress, setSavedProgress] = useState(() => loadWorkProgress());
-    const [showExitWorkConfirm, setShowExitWorkConfirm] = useState(false);
 
     // Auto-save work progress when in work mode
     useEffect(() => {
