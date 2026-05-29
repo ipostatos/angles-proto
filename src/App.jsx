@@ -43,6 +43,29 @@ let didRecoverFromCorrupt = false;
 const ADMIN_HASH_KEY = `${LS_KEY}_admin_hash`; // sha256 hex
 const ADMIN_SESSION_KEY = `${LS_KEY}_admin_session`; // "1" while logged in this session
 const ADMIN_REMEMBER_KEY = `${LS_KEY}_admin_remember`; // "1" when remember-me is on
+const LS_WORK_PROGRESS_KEY = `${LS_KEY}_work_progress`;
+
+function saveWorkProgress(holds, checked, mode) {
+    try {
+        localStorage.setItem(LS_WORK_PROGRESS_KEY, JSON.stringify({
+            holds: [...holds],
+            checked: [...checked],
+            mode,
+            savedAt: Date.now(),
+        }));
+    } catch { }
+}
+
+function loadWorkProgress() {
+    try {
+        const raw = localStorage.getItem(LS_WORK_PROGRESS_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+}
+
+function clearWorkProgress() {
+    try { localStorage.removeItem(LS_WORK_PROGRESS_KEY); } catch { }
+}
 
 function hasAdminSession() {
     try {
@@ -737,6 +760,44 @@ export default function App() {
         });
     }, []);
 
+    // Auto-save work progress when in work mode
+    useEffect(() => {
+        if (workMode) saveWorkProgress(selectedHolds, checkedAngles, printMode);
+    }, [checkedAngles, workMode, selectedHolds, printMode]);
+
+    const saveProgress = useCallback(() => {
+        saveWorkProgress(selectedHolds, checkedAngles, printMode);
+        setSavedProgress(loadWorkProgress());
+        toast.success("Progress saved");
+    }, [selectedHolds, checkedAngles, printMode]);
+
+    const resumeProgress = useCallback(() => {
+        const p = savedProgress;
+        if (!p) return;
+        setSelectedHolds(new Set(p.holds));
+        setCheckedAngles(new Set(p.checked));
+        setPrintMode(p.mode || "all");
+        setWorkMode(true);
+        setSavedProgress(null);
+    }, [savedProgress]);
+
+    const finishWork = useCallback(() => {
+        clearWorkProgress();
+        setCheckedAngles(new Set());
+        setWorkMode(false);
+        setSavedProgress(null);
+        setShowExitWorkConfirm(false);
+    }, []);
+
+    const exitWorkMode = useCallback(() => {
+        if (checkedAngles.size > 0) {
+            setShowExitWorkConfirm(true);
+        } else {
+            clearWorkProgress();
+            setWorkMode(false);
+        }
+    }, [checkedAngles]);
+
     // Clear search when a hold is added so the full list reappears
     const prevSizeRef = useRef(0);
     useEffect(() => {
@@ -747,6 +808,8 @@ export default function App() {
 
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [workMode, setWorkMode] = useState(false);
+    const [savedProgress, setSavedProgress] = useState(() => loadWorkProgress());
+    const [showExitWorkConfirm, setShowExitWorkConfirm] = useState(false);
 
     const clearSelection = useCallback(() => {
         setShowClearConfirm(true);
@@ -1276,6 +1339,19 @@ export default function App() {
                             </div>
                         </div>
 
+                        {savedProgress && (
+                            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, padding: "8px 10px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                <div style={{ fontSize: 11, color: "#166534", lineHeight: 1.4 }}>
+                                    <strong>Saved work</strong><br />
+                                    {formatLastModified(savedProgress.savedAt)}
+                                </div>
+                                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                    <button style={{ ...styles.btnSmallGhost, background: "#166534", color: "#fff", border: "none" }} onClick={resumeProgress}>Resume</button>
+                                    <button style={{ ...styles.btnSmallGhost }} onClick={() => { clearWorkProgress(); setSavedProgress(null); }}>✕</button>
+                                </div>
+                            </div>
+                        )}
+
                         <div style={styles.holdsList} className="holdsList">
                             {visibleHolds.map((name) => (
                                 <label key={name} style={styles.holdRow} className="holdRow">
@@ -1474,9 +1550,22 @@ export default function App() {
                     stefan={printMode !== "main" ? selectedAngles.stefan : []}
                     checkedAngles={checkedAngles}
                     onToggleCheck={toggleAngleCheck}
-                    onExit={() => setWorkMode(false)}
+                    onExit={exitWorkMode}
+                    onSave={saveProgress}
                     styles={styles}
                 />
+            )}
+
+            {showExitWorkConfirm && (
+                <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+                    <div style={{ background: "#fff", borderRadius: 10, padding: 24, maxWidth: 300, width: "100%", display: "flex", flexDirection: "column", gap: 12, boxSizing: "border-box" }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#888", textAlign: "center" }}>EXIT WORK MODE</div>
+                        <div style={{ fontSize: 13, color: "#1a1a1a", textAlign: "center", lineHeight: 1.5 }}>Keep progress for tomorrow?</div>
+                        <button style={{ ...styles.btnPrimary, height: 44 }} onClick={() => { setWorkMode(false); setShowExitWorkConfirm(false); }}>Keep &amp; exit</button>
+                        <button style={{ ...styles.btnGhost, height: 44 }} onClick={finishWork}>Clear &amp; exit</button>
+                        <button style={{ ...styles.btnGhost, height: 36, fontSize: 12, color: "#999" }} onClick={() => setShowExitWorkConfirm(false)}>Back</button>
+                    </div>
+                </div>
             )}
 
             {showClearConfirm && (
@@ -1905,7 +1994,7 @@ function PrintTableSection({ title, rows, maxColumnsPerRow, className = "" }) {
     );
 }
 
-function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, styles }) {
+function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, onSave, styles }) {
     return (
         <div style={{
             position: "fixed", inset: 0, zIndex: 200,
@@ -1934,8 +2023,12 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, s
                 position: "fixed", bottom: 0, left: 0, right: 0,
                 padding: "10px 12px env(safe-area-inset-bottom, 0px)",
                 background: "#ffffff", borderTop: "1px solid #e8e8e8",
+                display: "flex", gap: 8,
             }}>
-                <button onClick={onExit} style={{ ...styles.btnGhost, width: "100%", height: 44, fontSize: 14 }}>
+                <button onClick={onSave} style={{ ...styles.btnGhost, width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }} title="Save progress">
+                    <SaveIcon />
+                </button>
+                <button onClick={onExit} style={{ ...styles.btnGhost, flex: 1, height: 44, fontSize: 14 }}>
                     ← EXIT
                 </button>
             </div>
