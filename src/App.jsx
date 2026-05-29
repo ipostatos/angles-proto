@@ -1019,15 +1019,18 @@ export default function App() {
              right: 0 !important;
              z-index: 50 !important;
              background: #f5f7fa !important;
-             padding: 8px 12px 0 !important;
+             padding: 8px 12px 4px !important;
           }
-          /* Fade gradient below search */
-          .searchWrap::after {
-             content: "" !important;
+          .searchFade {
              display: block !important;
-             height: 16px !important;
+             position: fixed !important;
+             top: 44px !important;
+             left: 0 !important;
+             right: 0 !important;
+             height: 20px !important;
              background: linear-gradient(to bottom, #f5f7fa, rgba(245,247,250,0)) !important;
-             margin: 0 -12px !important;
+             z-index: 49 !important;
+             pointer-events: none !important;
           }
           /* Offset the card body so content starts below the fixed search */
           .main-grid > :first-child .cardBody {
@@ -1217,6 +1220,7 @@ export default function App() {
         button::-moz-focus-inner { border: 0; }
       `}</style>
 
+            <div className="searchFade" style={{ display: "none" }} />
             <div style={styles.grid} className="main-grid">
                 {/* Left: holds */}
                 <Card data-print-hide style={styles.card}>
@@ -2233,14 +2237,18 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             right: 0 !important;
             z-index: 50 !important;
             background: #f5f7fa !important;
-            padding: 8px 12px 0 !important;
+            padding: 8px 12px 4px !important;
           }
-          .adminSearchWrap::after {
-            content: "" !important;
+          .adminSearchFade {
             display: block !important;
-            height: 16px !important;
+            position: fixed !important;
+            top: 44px !important;
+            left: 0 !important;
+            right: 0 !important;
+            height: 20px !important;
             background: linear-gradient(to bottom, #f5f7fa, rgba(245,247,250,0)) !important;
-            margin: 0 -12px !important;
+            z-index: 49 !important;
+            pointer-events: none !important;
           }
           .admin-grid-container > :first-child .cardBody {
             padding-top: calc(28px + 22px) !important;
@@ -2340,6 +2348,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         button::-moz-focus-inner { border: 0; }
       `}</style>
 
+            <div className="adminSearchFade" style={{ display: "none" }} />
             <div style={styles.adminGrid} className="admin-grid-container">
                 {/* Left: holds list */}
                 <Card style={styles.card}>
