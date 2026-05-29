@@ -724,8 +724,15 @@ export default function App() {
             else next.add(name);
             return next;
         });
-        setHoldSearch("");
     }, []);
+
+    // Clear search when a hold is added so the full list reappears
+    const prevSizeRef = useRef(0);
+    useEffect(() => {
+        const size = selectedHolds.size;
+        if (size > prevSizeRef.current) setHoldSearch("");
+        prevSizeRef.current = size;
+    }, [selectedHolds]);
 
     const clearSelection = useCallback(() => {
         setSelectedHolds(new Set());
