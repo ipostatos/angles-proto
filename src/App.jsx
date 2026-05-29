@@ -760,11 +760,6 @@ export default function App() {
         });
     }, []);
 
-    // Auto-save work progress when in work mode
-    useEffect(() => {
-        if (workMode) saveWorkProgress(selectedHolds, checkedAngles, printMode);
-    }, [checkedAngles, workMode, selectedHolds, printMode]);
-
     const saveProgress = useCallback(() => {
         saveWorkProgress(selectedHolds, checkedAngles, printMode);
         setSavedProgress(loadWorkProgress());
@@ -810,6 +805,11 @@ export default function App() {
     const [workMode, setWorkMode] = useState(false);
     const [savedProgress, setSavedProgress] = useState(() => loadWorkProgress());
     const [showExitWorkConfirm, setShowExitWorkConfirm] = useState(false);
+
+    // Auto-save work progress when in work mode
+    useEffect(() => {
+        if (workMode) saveWorkProgress(selectedHolds, checkedAngles, printMode);
+    }, [checkedAngles, workMode, selectedHolds, printMode]);
 
     const clearSelection = useCallback(() => {
         setShowClearConfirm(true);
