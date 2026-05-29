@@ -2249,7 +2249,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             right: 0 !important;
             z-index: 100 !important;
             background: #ffffff !important;
-            border-top: 1px solid #e8e8e8 !important;
             padding: 10px 12px env(safe-area-inset-bottom, 0px) !important;
             gap: 8px !important;
           }
@@ -2264,7 +2263,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             line-height: 1.2 !important;
           }
           .admin-page-wrapper {
-            padding-bottom: calc(280px + env(safe-area-inset-bottom, 0px)) !important;
+            padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)) !important;
           }
         }
         /* MOBILE ADAPTATION END */
