@@ -1050,8 +1050,8 @@ export default function App() {
             min-height: 44px;
             touch-action: manipulation;
           }
-          /* Viewer tool buttons are fixed-size circles — exempt from min-height */
-          .viewerToolBtn {
+          /* Viewer tool buttons and zoom close — fixed-size circles, exempt from min-height */
+          .viewerToolBtn, .zoomCloseBtn {
             min-height: 0 !important;
             width: 44px !important;
             height: 44px !important;
@@ -1385,6 +1385,7 @@ export default function App() {
                     <button
                         onClick={() => setZoomedImage(null)}
                         style={styles.zoomCloseBtn}
+                        className="zoomCloseBtn"
                     >
                         ×
                     </button>
