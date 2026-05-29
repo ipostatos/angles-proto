@@ -590,6 +590,7 @@ export default function App() {
     const [savedProgress, setSavedProgress] = useState(() => loadWorkProgress());
     const [showExitWorkConfirm, setShowExitWorkConfirm] = useState(false);
     const [showSavedModal, setShowSavedModal] = useState(false);
+    const [showDiscardProgressConfirm, setShowDiscardProgressConfirm] = useState(false);
 
     const openAdmin = useCallback(() => {
         if (hasAdminSession()) {
@@ -1349,7 +1350,7 @@ export default function App() {
                                 </div>
                                 <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                                     <button style={{ ...styles.btnSmallGhost, background: "#166534", color: "#fff", border: "none" }} onClick={resumeProgress}>Resume</button>
-                                    <button style={{ ...styles.btnSmallGhost }} onClick={() => { clearWorkProgress(); setSavedProgress(null); }}>✕</button>
+                                    <button style={{ ...styles.btnSmallGhost }} onClick={() => setShowDiscardProgressConfirm(true)}>✕</button>
                                 </div>
                             </div>
                         )}
@@ -1569,6 +1570,15 @@ export default function App() {
                         <button style={{ ...styles.btnGhost, height: 36, fontSize: 12, color: "#999" }} onClick={() => setShowExitWorkConfirm(false)}>Back</button>
                     </div>
                 </div>
+            )}
+
+            {showDiscardProgressConfirm && (
+                <ConfirmDialog
+                    message="Discard saved progress?"
+                    styles={styles}
+                    onConfirm={() => { clearWorkProgress(); setSavedProgress(null); setShowDiscardProgressConfirm(false); }}
+                    onCancel={() => setShowDiscardProgressConfirm(false)}
+                />
             )}
 
             {showClearConfirm && (
