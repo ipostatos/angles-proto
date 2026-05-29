@@ -543,6 +543,8 @@ export default function App() {
     const [loginUser, setLoginUser] = useState("admin");
     const [loginPass, setLoginPass] = useState("");
     const [loginShake, setLoginShake] = useState(false);
+    const [loginMode, setLoginMode] = useState("login"); // "login" | "setup"
+    const [loginError, setLoginError] = useState("");
     // Keeps admin mounted after one-time session token is consumed on AdminPage mount
     const [adminAuthed, setAdminAuthed] = useState(false);
     const prevRouteRef = useRef(null);
@@ -552,6 +554,10 @@ export default function App() {
             window.location.hash = "#/admin";
         } else {
             setLoginPass("");
+            setLoginError("");
+            let storedHash = null;
+            try { storedHash = localStorage.getItem(ADMIN_HASH_KEY); } catch { }
+            setLoginMode(storedHash ? "login" : "setup");
             setShowLogin(true);
         }
     }, []);
@@ -593,43 +599,39 @@ export default function App() {
             window.location.hash = "#/admin";
         };
 
+        const shake = (msg = "") => {
+            setLoginError(msg);
+            setLoginShake(true);
+            setLoginPass("");
+            setTimeout(() => setLoginShake(false), 600);
+        };
+
         try {
             if (!storedHash) {
-                // First-run setup: operator chooses a strong password (no built-in default).
-                if (loginUser !== "admin") {
-                    toast.error("Use username \"admin\" to set up.");
-                    return;
-                }
                 if (!isStrongAdminPassword(loginPass)) {
-                    toast.error("Set a password with at least 8 characters (not a common word).");
+                    shake("Минимум 8 символов, не простое слово");
                     return;
                 }
-                let stored = false;
                 try {
                     localStorage.setItem(ADMIN_HASH_KEY, await sha256Hex(loginPass));
-                    stored = true;
                 } catch {
-                    toast.error("Could not save password. Check browser storage settings.");
+                    shake("Не удалось сохранить пароль");
+                    return;
                 }
-                if (stored) {
-                    toast.success("Admin password set.");
-                    finish();
-                }
+                finish();
                 return;
             }
 
             const hash = await sha256Hex(loginPass);
             if (loginUser === "admin" && hash === storedHash) {
+                setLoginError("");
                 finish();
             } else {
-                setLoginShake(true);
-                setLoginPass("");
-                setTimeout(() => setLoginShake(false), 600);
+                shake();
             }
         } catch (err) {
             console.warn("Login failed:", err);
-            setLoginShake(true);
-            setTimeout(() => setLoginShake(false), 600);
+            shake();
         }
     }, [loginUser, loginPass]);
 
@@ -1479,37 +1481,60 @@ export default function App() {
                             boxSizing: "border-box",
                         }}
                     >
-                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ADMIN</div>
-                        <input
-                            value={loginUser}
-                            onChange={(e) => setLoginUser(e.target.value)}
-                            placeholder="LOGIN"
-                            className="login-modal-input"
-                            style={{
-                                ...styles.input,
-                                textAlign: "center",
-                                background: theme.colors.inputBg,
-                                boxShadow: "none",
-                            }}
-                        />
-                        <input
-                            value={loginPass}
-                            onChange={(e) => setLoginPass(e.target.value)}
-                            placeholder="PASSWORD"
-                            type="password"
-                            autoFocus
-                            className="login-modal-input"
-                            style={{
-                                ...styles.input,
-                                textAlign: "center",
-                                background: theme.colors.inputBg,
-                                boxShadow: "none",
-                            }}
-                        />
-                        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4 }}>
-                            <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>OK</button>
-                            <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>CANCEL</button>
-                        </div>
+                        {loginMode === "setup" ? (
+                            <>
+                                <div style={{ textAlign: "center" }}>
+                                    <div style={{ fontSize: 20, marginBottom: 6 }}>🔐</div>
+                                    <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ПЕРВЫЙ ВХОД</div>
+                                    <div style={{ fontSize: 12, color: theme.colors.textSecondary, lineHeight: 1.5 }}>
+                                        Придумайте пароль администратора.<br />
+                                        Минимум 8 символов.
+                                    </div>
+                                </div>
+                                <input
+                                    value={loginPass}
+                                    onChange={(e) => setLoginPass(e.target.value)}
+                                    placeholder="НОВЫЙ ПАРОЛЬ"
+                                    type="password"
+                                    autoFocus
+                                    className="login-modal-input"
+                                    style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
+                                />
+                                {loginError && (
+                                    <div style={{ fontSize: 11, color: "#e53e3e", textAlign: "center", marginTop: -4 }}>
+                                        {loginError}
+                                    </div>
+                                )}
+                                <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4 }}>
+                                    <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>ЗАДАТЬ</button>
+                                    <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>ОТМЕНА</button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ADMIN</div>
+                                <input
+                                    value={loginUser}
+                                    onChange={(e) => setLoginUser(e.target.value)}
+                                    placeholder="LOGIN"
+                                    className="login-modal-input"
+                                    style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
+                                />
+                                <input
+                                    value={loginPass}
+                                    onChange={(e) => setLoginPass(e.target.value)}
+                                    placeholder="PASSWORD"
+                                    type="password"
+                                    autoFocus
+                                    className="login-modal-input"
+                                    style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
+                                />
+                                <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4 }}>
+                                    <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>OK</button>
+                                    <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>CANCEL</button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
