@@ -1033,7 +1033,7 @@ export default function App() {
              pointer-events: none !important;
           }
           /* Offset the card body so content starts below the fixed search */
-          .main-grid > :first-child .cardBody {
+          .holdsCardBody {
              padding-top: calc(28px + 78px) !important;
           }
           .searchPill {
@@ -1224,7 +1224,7 @@ export default function App() {
             <div style={styles.grid} className="main-grid">
                 {/* Left: holds */}
                 <Card data-print-hide style={styles.card}>
-                    <div style={styles.cardBody}>
+                    <div style={styles.cardBody} className="holdsCardBody">
                         <div style={styles.searchWrap} className="searchWrap">
                             <div
                                 style={styles.searchPill}
@@ -2250,9 +2250,6 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             z-index: 49 !important;
             pointer-events: none !important;
           }
-          .admin-grid-container > :first-child .cardBody {
-            padding-top: calc(28px + 64px) !important;
-          }
           .adminSearchWrap .searchPill {
             height: 28px !important;
             min-height: 28px !important;
@@ -2352,7 +2349,7 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             <div style={styles.adminGrid} className="admin-grid-container">
                 {/* Left: holds list */}
                 <Card style={styles.card}>
-                    <div style={styles.cardBody}>
+                    <div style={styles.cardBody} className="holdsCardBody">
                         <div style={styles.searchWrap} className="searchWrap adminSearchWrap">
                             <div
                                 style={styles.searchPill}
