@@ -1574,7 +1574,7 @@ export default function App() {
                     <div style={{ background: "#fff", borderRadius: 10, padding: 24, maxWidth: 300, width: "100%", display: "flex", flexDirection: "column", gap: 12, boxSizing: "border-box" }}>
                         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "#888", textAlign: "center" }}>EXIT WORK MODE</div>
                         <div style={{ fontSize: 13, color: "#1a1a1a", textAlign: "center", lineHeight: 1.5 }}>Keep progress for tomorrow?</div>
-                        <button style={{ ...styles.btnPrimary, height: 44 }} onClick={() => { setWorkMode(false); setShowExitWorkConfirm(false); }}>Keep &amp; exit</button>
+                        <button style={{ ...styles.btnPrimary, height: 44 }} onClick={() => { saveWorkProgress(selectedHolds, checkedAngles, printMode); setSavedProgress(loadWorkProgress()); setWorkMode(false); setShowExitWorkConfirm(false); }}>Keep &amp; exit</button>
                         <button style={{ ...styles.btnGhost, height: 44 }} onClick={finishWork}>Clear &amp; exit</button>
                         <button style={{ ...styles.btnGhost, height: 36, fontSize: 12, color: "#999" }} onClick={() => setShowExitWorkConfirm(false)}>Back</button>
                     </div>
