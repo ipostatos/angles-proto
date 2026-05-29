@@ -1077,14 +1077,23 @@ export default function App() {
           .searchWrap { padding-bottom: 4px !important; }
           /* MOBILE FIX END */
 
-          /* Touch targets */
+          /* Touch targets — only footer/primary actions get 44px, not all buttons */
           button, input, [role="button"] {
-            min-height: 44px;
             touch-action: manipulation;
           }
-          /* Viewer tool buttons and zoom close — fixed-size circles, exempt from min-height */
-          .viewerToolBtn, .zoomCloseBtn {
+          .footerBtn, .footerRow button, .footerRow select {
+            min-height: 44px !important;
+          }
+          input[type="text"], input[type="password"], input[type="search"] {
+            min-height: 44px;
+          }
+          /* All buttons: strict square shape, no oval */
+          button {
             min-height: 0 !important;
+            height: auto;
+          }
+          /* Viewer tool buttons and zoom close */
+          .viewerToolBtn, .zoomCloseBtn {
             width: 44px !important;
             height: 44px !important;
           }
@@ -2198,8 +2207,8 @@ function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             overflow-y: auto !important;
           }
           
-          input, button {
-            min-height: 44px;
+          button {
+            min-height: 0 !important;
           }
           input {
             font-size: 16px !important;
