@@ -42,9 +42,14 @@ let didRecoverFromCorrupt = false;
 // admin auth
 const ADMIN_HASH_KEY = `${LS_KEY}_admin_hash`; // sha256 hex
 const ADMIN_SESSION_KEY = `${LS_KEY}_admin_session`; // "1" while logged in this session
+const ADMIN_REMEMBER_KEY = `${LS_KEY}_admin_remember`; // "1" when remember-me is on
 
 function hasAdminSession() {
-    try { return sessionStorage.getItem(ADMIN_SESSION_KEY) === "1"; } catch { return false; }
+    try {
+        if (sessionStorage.getItem(ADMIN_SESSION_KEY) === "1") return true;
+        if (localStorage.getItem(ADMIN_REMEMBER_KEY) === "1") return true;
+        return false;
+    } catch { return false; }
 }
 
 function cryptoRandomId() {
@@ -545,6 +550,8 @@ export default function App() {
     const [loginShake, setLoginShake] = useState(false);
     const [loginMode, setLoginMode] = useState("login"); // "login" | "setup"
     const [loginError, setLoginError] = useState("");
+    const [showPass, setShowPass] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
     // Keeps admin mounted after one-time session token is consumed on AdminPage mount
     const [adminAuthed, setAdminAuthed] = useState(false);
     const prevRouteRef = useRef(null);
@@ -593,9 +600,15 @@ export default function App() {
 
         const finish = () => {
             try { sessionStorage.setItem(ADMIN_SESSION_KEY, "1"); } catch { }
+            if (rememberMe) {
+                try { localStorage.setItem(ADMIN_REMEMBER_KEY, "1"); } catch { }
+            } else {
+                try { localStorage.removeItem(ADMIN_REMEMBER_KEY); } catch { }
+            }
             setAdminAuthed(true);
             setShowLogin(false);
             setLoginPass("");
+            setShowPass(false);
             window.location.hash = "#/admin";
         };
 
@@ -1491,15 +1504,7 @@ export default function App() {
                                         Минимум 8 символов.
                                     </div>
                                 </div>
-                                <input
-                                    value={loginPass}
-                                    onChange={(e) => setLoginPass(e.target.value)}
-                                    placeholder="НОВЫЙ ПАРОЛЬ"
-                                    type="password"
-                                    autoFocus
-                                    className="login-modal-input"
-                                    style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
-                                />
+                                <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="НОВЫЙ ПАРОЛЬ" styles={styles} />
                                 {loginError && (
                                     <div style={{ fontSize: 11, color: "#e53e3e", textAlign: "center", marginTop: -4 }}>
                                         {loginError}
@@ -1520,16 +1525,17 @@ export default function App() {
                                     className="login-modal-input"
                                     style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
                                 />
-                                <input
-                                    value={loginPass}
-                                    onChange={(e) => setLoginPass(e.target.value)}
-                                    placeholder="PASSWORD"
-                                    type="password"
-                                    autoFocus
-                                    className="login-modal-input"
-                                    style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
-                                />
-                                <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4 }}>
+                                <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="PASSWORD" styles={styles} autoFocus />
+                                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", justifyContent: "center" }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={rememberMe}
+                                        onChange={(e) => setRememberMe(e.target.checked)}
+                                        style={{ width: 14, height: 14, cursor: "pointer", accentColor: theme.colors.textPrimary }}
+                                    />
+                                    <span style={{ fontSize: 12, color: theme.colors.textSecondary }}>Запомнить</span>
+                                </label>
+                                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                     <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>OK</button>
                                     <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>CANCEL</button>
                                 </div>
@@ -1538,6 +1544,41 @@ export default function App() {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+function PasswordInput({ value, onChange, show, onToggle, placeholder, styles, autoFocus }) {
+    return (
+        <div style={{ position: "relative" }}>
+            <input
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder}
+                type={show ? "text" : "password"}
+                autoFocus={autoFocus}
+                className="login-modal-input"
+                style={{ ...styles.input, textAlign: "center", background: "#fff", boxShadow: "none", width: "100%", boxSizing: "border-box", paddingRight: 36 }}
+            />
+            <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={onToggle}
+                style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 4, color: "#999", display: "flex", alignItems: "center", minHeight: 0 }}
+            >
+                {show ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                )}
+            </button>
         </div>
     );
 }
