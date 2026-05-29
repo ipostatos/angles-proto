@@ -1194,10 +1194,11 @@ export default function App() {
                 {/* Left: holds */}
                 <Card data-print-hide style={styles.card}>
                     <div style={styles.cardBody}>
-                        <div style={styles.searchWrap}>
+                        <div style={styles.searchWrap} className="searchWrap">
                             <div
                                 style={styles.searchPill}
                                 role="search"
+                                className="searchPill"
                                 onMouseDown={(e) => {
                                     e.preventDefault();
                                     searchRef.current?.focus();
