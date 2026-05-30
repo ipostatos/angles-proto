@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { clamp, toAngleLabel } from './domain/angles.js';
+import { normalizeHoldName as normalizeHoldNameSafe, sanitizeHoldList, sortHolds } from './domain/holds.js';
+import { isSafeRasterDataUrl, isStrongAdminPassword, WEAK_PINS } from './domain/validation.js';
+import { migrateAndSanitize, unwrapImportedDb, LS_VERSION, DEFAULT_HOLDS } from './domain/migration.js';
 
 /**
  * PROTOTYPE (no backend)
@@ -20,12 +24,7 @@ import toast from "react-hot-toast";
 
 const APP_VERSION = "1.01";
 
-const DEFAULT_HOLDS = [
-    "Anton",
-];
-
 const LS_KEY = "angles_proto_v1";
-const LS_VERSION = 1;
 const LS_LAST_MODIFIED_KEY = "angles_proto_v1_lastModified";
 
 // backups
@@ -91,19 +90,6 @@ const DEFAULT_ANGLES = [
     { id: cryptoRandomId(), hold: "Amon", value: 50.0, saw: "stefan" },
 ];
 
-function clamp(n, a, b) {
-    return Math.max(a, Math.min(b, n));
-}
-
-function toAngleLabel(n) {
-    const isInt = Math.abs(Number(n) - Math.round(Number(n))) < 1e-9;
-    return isInt ? `${Math.round(Number(n))}°` : `${Number(n).toFixed(1)}°`;
-}
-
-function sortHolds(holds) {
-    return [...holds].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-}
-
 /* -------------------- tiny debounce hook (P0) -------------------- */
 function useDebounce(value, delay) {
     const [debounced, setDebounced] = useState(value);
@@ -115,31 +101,6 @@ function useDebounce(value, delay) {
 }
 
 /* -------------------- STORAGE: migration + sanitize -------------------- */
-
-function normalizeHoldNameSafe(s) {
-    return String(s || "").trim().replace(/\s+/g, " ");
-}
-
-function sanitizeHoldList(holds) {
-    const arr = Array.isArray(holds) ? holds : [];
-    const cleaned = arr.map(normalizeHoldNameSafe).filter(Boolean);
-
-    const seen = new Set();
-    const unique = [];
-    for (const h of cleaned) {
-        const key = h.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        unique.push(h);
-    }
-    return sortHolds(unique);
-}
-
-// Only accept raster image data URLs. Rejects SVG (data:image/svg+xml) and any
-// non-image string to avoid storing/rendering untrusted markup from JSON import.
-function isSafeRasterDataUrl(s) {
-    return typeof s === "string" && /^data:image\/(png|jpe?g|webp|gif);/i.test(s);
-}
 
 function sanitizeAngle(a, holdsSet) {
     const hold = normalizeHoldNameSafe(a?.hold);
@@ -156,45 +117,6 @@ function sanitizeAngle(a, holdsSet) {
     if (!hold || !holdsSet.has(hold)) return null;
 
     return { id, hold, value, saw, ...(drawing ? { drawing } : {}) };
-}
-
-/** Accepts raw db OR wrapper: { data: { holds, angles, holdImages } } */
-function unwrapImportedDb(parsed) {
-    if (!parsed || typeof parsed !== "object") return parsed;
-    if (parsed.data && typeof parsed.data === "object") return parsed.data;
-    return parsed;
-}
-
-function migrateAndSanitize(parsed) {
-    const unwrapped = unwrapImportedDb(parsed);
-
-    const holds = sanitizeHoldList(unwrapped?.holds ?? DEFAULT_HOLDS);
-    const holdsSet = new Set(holds);
-
-    const anglesRaw = Array.isArray(unwrapped?.angles) ? unwrapped.angles : DEFAULT_ANGLES;
-
-    const angles = [];
-    const ids = new Set();
-
-    for (const a of anglesRaw) {
-        const sa = sanitizeAngle(a, holdsSet);
-        if (!sa) continue;
-        if (ids.has(sa.id)) sa.id = cryptoRandomId();
-        ids.add(sa.id);
-        angles.push(sa);
-    }
-
-    const rawHoldImages =
-        unwrapped?.holdImages && typeof unwrapped.holdImages === "object" ? unwrapped.holdImages : {};
-    const holdImages = {};
-    for (const h of holds) {
-        const v = rawHoldImages[h];
-        if (isSafeRasterDataUrl(v)) {
-            holdImages[h] = v;
-        }
-    }
-
-    return { version: LS_VERSION, holds, angles, holdImages };
 }
 
 function ensureLastModifiedExists() {
@@ -480,15 +402,6 @@ async function sha256Hex(text) {
     const bytes = enc.encode(String(text ?? ""));
     const hash = await crypto.subtle.digest("SHA-256", bytes);
     return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// PIN policy: exactly 4 digits.
-const WEAK_PINS = new Set(["0000", "1111", "2222", "3333", "4444", "5555", "6666", "7777", "8888", "9999", "1234", "4321", "0123"]);
-function isStrongAdminPassword(pw) {
-    const p = String(pw ?? "");
-    if (!/^\d{4}$/.test(p)) return false;
-    if (WEAK_PINS.has(p)) return false;
-    return true;
 }
 
 /* ===================== SORT ICON ===================== */
