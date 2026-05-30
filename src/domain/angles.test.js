@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { clamp, toAngleLabel } from './angles.js';
+import { normalizeHoldName } from './holds.js';
 
-// Helpers kept inline — belong to other modules not yet extracted
-function normalizeHoldNameSafe(s) {
-  return String(s || '').trim().replace(/\s+/g, ' ');
-}
 function isSafeRasterDataUrl(s) {
   return typeof s === 'string' && /^data:image\/(png|jpe?g|webp|gif);/i.test(s);
 }
@@ -30,18 +27,18 @@ describe('toAngleLabel', () => {
   });
 });
 
-describe('normalizeHoldNameSafe', () => {
+describe('normalizeHoldName', () => {
   it('trims whitespace', () => {
-    expect(normalizeHoldNameSafe('  crimp  ')).toBe('crimp');
+    expect(normalizeHoldName('  crimp  ')).toBe('crimp');
   });
   it('collapses internal spaces', () => {
-    expect(normalizeHoldNameSafe('big  jug')).toBe('big jug');
+    expect(normalizeHoldName('big  jug')).toBe('big jug');
   });
   it('handles null', () => {
-    expect(normalizeHoldNameSafe(null)).toBe('');
+    expect(normalizeHoldName(null)).toBe('');
   });
   it('handles undefined', () => {
-    expect(normalizeHoldNameSafe(undefined)).toBe('');
+    expect(normalizeHoldName(undefined)).toBe('');
   });
 });
 
