@@ -1,6 +1,6 @@
 import React from 'react';
 
-function PasswordInput({ value, onChange, show, onToggle, placeholder, styles, autoFocus, inputMode, maxLength }) {
+export function PasswordInput({ value, onChange, show, onToggle, placeholder, styles, autoFocus, inputMode, maxLength }) {
     return (
         <div style={{ position: "relative" }}>
             <input

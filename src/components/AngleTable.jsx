@@ -1,7 +1,7 @@
 import React from 'react';
 import { toAngleLabel } from '../domain/angles.js';
 
-function AngleTable({ rows, onPick, styles }) {
+export function AngleTable({ rows, onPick, styles }) {
     return (
         <div style={styles.table} className="print-table-container">
             {rows.map((r) => (

@@ -10,7 +10,7 @@ const theme = {
     },
 };
 
-function PrintModeSelect({ value, onChange, options, styles }) {
+export function PrintModeSelect({ value, onChange, options, styles }) {
     const [open, setOpen] = useState(false);
     const [hovered, setHovered] = useState(null);
     const wrapRef = useRef(null);
