@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { clamp, toAngleLabel } from './angles.js';
 import { normalizeHoldName } from './holds.js';
-
-function isSafeRasterDataUrl(s) {
-  return typeof s === 'string' && /^data:image\/(png|jpe?g|webp|gif);/i.test(s);
-}
+import { isSafeRasterDataUrl, isStrongAdminPassword } from './validation.js';
 
 describe('clamp', () => {
   it('clamps to min', () => {
@@ -55,4 +52,13 @@ describe('isSafeRasterDataUrl', () => {
   it('rejects plain string', () => {
     expect(isSafeRasterDataUrl('https://example.com/image.png')).toBe(false);
   });
+});
+
+describe('isStrongAdminPassword', () => {
+  it('accepts valid 4-digit PIN', () => expect(isStrongAdminPassword('5823')).toBe(true));
+  it('rejects non-digits', () => expect(isStrongAdminPassword('abcd')).toBe(false));
+  it('rejects weak PIN 1234', () => expect(isStrongAdminPassword('1234')).toBe(false));
+  it('rejects repeating 0000', () => expect(isStrongAdminPassword('0000')).toBe(false));
+  it('rejects too short', () => expect(isStrongAdminPassword('123')).toBe(false));
+  it('rejects too long', () => expect(isStrongAdminPassword('12345')).toBe(false));
 });
