@@ -804,6 +804,18 @@ export default function App() {
         }
     }, [checkedAngles]);
 
+    // Intercept browser back button while in work mode
+    useEffect(() => {
+        if (!workMode) return;
+        window.history.pushState({ workMode: true }, "");
+        const onPop = (e) => {
+            e.preventDefault();
+            exitWorkMode();
+        };
+        window.addEventListener("popstate", onPop);
+        return () => window.removeEventListener("popstate", onPop);
+    }, [workMode, exitWorkMode]);
+
     // Clear search when a hold is added so the full list reappears
     const prevSizeRef = useRef(0);
     useEffect(() => {
