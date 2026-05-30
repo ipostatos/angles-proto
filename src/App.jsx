@@ -4,6 +4,12 @@ import { clamp, toAngleLabel } from './domain/angles.js';
 import { normalizeHoldName as normalizeHoldNameSafe, sanitizeHoldList, sortHolds } from './domain/holds.js';
 import { isSafeRasterDataUrl, isStrongAdminPassword, WEAK_PINS } from './domain/validation.js';
 import { migrateAndSanitize, unwrapImportedDb, LS_VERSION, DEFAULT_HOLDS } from './domain/migration.js';
+import { loadState, saveState, loadLastModified, touchLastModified, getAndResetDidRecover, LS_KEY, MAX_DB_SIZE_KB } from './storage/db.js';
+import { pushBackup, LS_BACKUPS_KEY } from './storage/backups.js';
+import { hasAdminSession, sha256Hex, ADMIN_HASH_KEY, ADMIN_SESSION_KEY, ADMIN_REMEMBER_KEY } from './storage/auth.js';
+import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS_KEY } from './storage/workProgress.js';
+import { downloadJsonFile, readJsonFile, serializedSizeKB } from './storage/importExport.js';
+import { compressImageFile, printImage } from './utils/image.js';
 
 /**
  * PROTOTYPE (no backend)
@@ -24,55 +30,6 @@ import { migrateAndSanitize, unwrapImportedDb, LS_VERSION, DEFAULT_HOLDS } from 
 
 const APP_VERSION = "1.01";
 
-const LS_KEY = "angles_proto_v1";
-const LS_LAST_MODIFIED_KEY = "angles_proto_v1_lastModified";
-
-// backups
-const LS_BACKUPS_KEY = `${LS_KEY}_backups`;
-const MAX_BACKUPS = 5;
-const LS_CORRUPT_KEY = `${LS_KEY}_corrupt`;
-
-// Max serialized DB size we allow to keep in localStorage / accept on import (~4.5MB)
-const MAX_DB_SIZE_KB = 4500;
-
-// Set when loadState() had to recover from corrupt data; App surfaces a toast.
-let didRecoverFromCorrupt = false;
-
-// admin auth
-const ADMIN_HASH_KEY = `${LS_KEY}_admin_hash`; // sha256 hex
-const ADMIN_SESSION_KEY = `${LS_KEY}_admin_session`; // "1" while logged in this session
-const ADMIN_REMEMBER_KEY = `${LS_KEY}_admin_remember`; // "1" when remember-me is on
-const LS_WORK_PROGRESS_KEY = `${LS_KEY}_work_progress`;
-
-function saveWorkProgress(holds, checked, mode) {
-    try {
-        localStorage.setItem(LS_WORK_PROGRESS_KEY, JSON.stringify({
-            holds: [...holds],
-            checked: [...checked],
-            mode,
-            savedAt: Date.now(),
-        }));
-    } catch { }
-}
-
-function loadWorkProgress() {
-    try {
-        const raw = localStorage.getItem(LS_WORK_PROGRESS_KEY);
-        return raw ? JSON.parse(raw) : null;
-    } catch { return null; }
-}
-
-function clearWorkProgress() {
-    try { localStorage.removeItem(LS_WORK_PROGRESS_KEY); } catch { }
-}
-
-function hasAdminSession() {
-    try {
-        if (sessionStorage.getItem(ADMIN_SESSION_KEY) === "1") return true;
-        if (localStorage.getItem(ADMIN_REMEMBER_KEY) === "1") return true;
-        return false;
-    } catch { return false; }
-}
 
 function cryptoRandomId() {
     try {
@@ -119,163 +76,6 @@ function sanitizeAngle(a, holdsSet) {
     return { id, hold, value, saw, ...(drawing ? { drawing } : {}) };
 }
 
-function ensureLastModifiedExists() {
-    try {
-        const v = localStorage.getItem(LS_LAST_MODIFIED_KEY);
-        if (!v) localStorage.setItem(LS_LAST_MODIFIED_KEY, String(Date.now()));
-    } catch { }
-}
-
-function touchLastModified() {
-    try {
-        localStorage.setItem(LS_LAST_MODIFIED_KEY, String(Date.now()));
-    } catch { }
-}
-
-function loadLastModified() {
-    try {
-        const v = localStorage.getItem(LS_LAST_MODIFIED_KEY);
-        return v ? Number(v) : null;
-    } catch {
-        return null;
-    }
-}
-
-function loadState() {
-    try {
-        const raw = localStorage.getItem(LS_KEY);
-        if (!raw) {
-            const init = migrateAndSanitize({
-                version: LS_VERSION,
-                holds: DEFAULT_HOLDS,
-                angles: DEFAULT_ANGLES,
-                holdImages: {},
-            });
-            localStorage.setItem(LS_KEY, JSON.stringify(init));
-            localStorage.setItem(LS_LAST_MODIFIED_KEY, String(Date.now()));
-            return init;
-        }
-
-        const parsed = JSON.parse(raw);
-        const next = migrateAndSanitize(parsed);
-
-        localStorage.setItem(LS_KEY, JSON.stringify(next));
-        ensureLastModifiedExists();
-        return next;
-    } catch {
-        // Data is unreadable. Preserve the original bytes for recovery instead of
-        // silently overwriting them, and DON'T touch LS_KEY here so the user can
-        // still export/inspect the corrupt payload. Keep only the newest copy.
-        try {
-            const raw = localStorage.getItem(LS_KEY);
-            if (raw) {
-                for (let i = localStorage.length - 1; i >= 0; i--) {
-                    const k = localStorage.key(i);
-                    if (k && k.startsWith(`${LS_CORRUPT_KEY}_`)) localStorage.removeItem(k);
-                }
-                localStorage.setItem(`${LS_CORRUPT_KEY}_${Date.now()}`, raw);
-            }
-        } catch { }
-        didRecoverFromCorrupt = true;
-        return migrateAndSanitize({
-            version: LS_VERSION,
-            holds: DEFAULT_HOLDS,
-            angles: DEFAULT_ANGLES,
-            holdImages: {},
-        });
-    }
-}
-
-function saveState(next) {
-    try {
-        const safe = migrateAndSanitize(next);
-        localStorage.setItem(LS_KEY, JSON.stringify(safe));
-        touchLastModified();
-        return true;
-    } catch (err) {
-        if (err?.name === "QuotaExceededError" || err?.code === 22) {
-            console.warn("Storage full: image not saved. Use smaller images or remove some drawings.");
-            toast.error("Storage full. Remove some drawings or upload smaller images.");
-        } else {
-            console.warn("Save failed:", err);
-            toast.error("Could not save. Changes may be lost.");
-        }
-        return false;
-    }
-}
-
-/* -------------------- backups ring (P1) -------------------- */
-function pushBackup(snapshot) {
-    try {
-        const raw = localStorage.getItem(LS_BACKUPS_KEY);
-        const arr = raw ? JSON.parse(raw) : [];
-        const next = [{ ts: Date.now(), data: snapshot }, ...(Array.isArray(arr) ? arr : [])].slice(0, MAX_BACKUPS);
-        localStorage.setItem(LS_BACKUPS_KEY, JSON.stringify(next));
-    } catch (e) {
-        console.warn("Backup failed:", e);
-    }
-}
-
-/** Resize/compress image to reduce localStorage size. Returns data URL (jpeg). */
-function compressImageFile(file, maxSize = 800, quality = 0.82) {
-    return new Promise((resolve, reject) => {
-        if (!file?.type?.startsWith("image/")) {
-            reject(new Error("Not an image"));
-            return;
-        }
-
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-
-        let done = false;
-        const finish = (fn) => (arg) => {
-            if (done) return;
-            done = true;
-            try {
-                URL.revokeObjectURL(url);
-            } finally {
-                fn(arg);
-            }
-        };
-
-        img.onload = finish(() => {
-            const w = img.naturalWidth;
-            const h = img.naturalHeight;
-            let dw = w, dh = h;
-
-            if (w > maxSize || h > maxSize) {
-                if (w >= h) {
-                    dw = maxSize;
-                    dh = Math.round((h * maxSize) / w);
-                } else {
-                    dh = maxSize;
-                    dw = Math.round((w * maxSize) / h);
-                }
-            }
-
-            const canvas = document.createElement("canvas");
-            canvas.width = dw;
-            canvas.height = dh;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) {
-                reject(new Error("No canvas context"));
-                return;
-            }
-            ctx.drawImage(img, 0, 0, dw, dh);
-            try {
-                resolve(canvas.toDataURL("image/jpeg", quality));
-            } catch (e) {
-                reject(e);
-            }
-        });
-
-        img.onerror = finish(() => {
-            reject(new Error("Failed to load image"));
-        });
-
-        img.src = url;
-    });
-}
 
 function useHashRoute() {
     const [hash, setHash] = useState(() => window.location.hash || "#/");
@@ -287,98 +87,6 @@ function useHashRoute() {
     return hash.replace("#", "");
 }
 
-/* -------------------- EXPORT / IMPORT DB -------------------- */
-
-function downloadJsonFile(obj, filename = "angles-db.json") {
-    const safe = migrateAndSanitize(obj);
-    const payload = {
-        app: "AnglesProto",
-        exportedAt: new Date().toISOString(),
-        version: LS_VERSION,
-        data: safe,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-}
-
-async function readJsonFile(file) {
-    const text = await file.text();
-    return JSON.parse(text);
-}
-
-function serializedSizeKB(obj) {
-    try {
-        return new Blob([JSON.stringify(obj)]).size / 1024;
-    } catch {
-        return Infinity;
-    }
-}
-
-function printImage(src) {
-    if (!src) return;
-
-    const iframe = document.createElement("iframe");
-    iframe.setAttribute("aria-hidden", "true");
-    Object.assign(iframe.style, {
-        position: "fixed",
-        width: "0",
-        height: "0",
-        border: "0",
-        opacity: "0",
-        pointerEvents: "none",
-    });
-    document.body.appendChild(iframe);
-
-    const cleanup = () => {
-        setTimeout(() => iframe.remove(), 500);
-    };
-
-    const win = iframe.contentWindow;
-    const doc = iframe.contentDocument || win?.document;
-    if (!doc || !win) {
-        cleanup();
-        return;
-    }
-
-    doc.open();
-    doc.write(`<!DOCTYPE html><html><head><title>Drawing</title><style>
-      @page { margin: 12mm; }
-      html, body { margin: 0; padding: 0; height: 100%; }
-      body { display: flex; align-items: center; justify-content: center; }
-      img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    </style></head><body><img id="print-drawing" alt="drawing" /></body></html>`);
-    doc.close();
-
-    const img = doc.getElementById("print-drawing");
-    if (!img) {
-        cleanup();
-        return;
-    }
-
-    let printed = false;
-    const doPrint = () => {
-        if (printed) return;
-        printed = true;
-        try {
-            win.focus();
-            win.print();
-        } finally {
-            cleanup();
-        }
-    };
-
-    img.onerror = cleanup;
-    img.onload = doPrint;
-    img.src = src;
-    if (img.complete) doPrint();
-}
 
 function formatLastModified(ms) {
     if (!ms || !Number.isFinite(ms)) return "—";
@@ -396,13 +104,6 @@ function formatLastModified(ms) {
     }
 }
 
-/* -------------------- crypto: sha256 hex (P1) -------------------- */
-async function sha256Hex(text) {
-    const enc = new TextEncoder();
-    const bytes = enc.encode(String(text ?? ""));
-    const hash = await crypto.subtle.digest("SHA-256", bytes);
-    return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 /* ===================== SORT ICON ===================== */
 function SortIcon({ direction }) {
@@ -616,9 +317,8 @@ export default function App() {
 
     // Surface a one-time warning if stored data was unreadable and we recovered.
     useEffect(() => {
-        if (didRecoverFromCorrupt) {
-            didRecoverFromCorrupt = false;
-            toast.error("Saved data was unreadable. A backup copy was kept; you can re-import from EXPORT file.", { duration: 6000 });
+        if (getAndResetDidRecover()) {
+            toast.error("Saved data was unreadable...", { duration: 6000 });
         }
     }, []);
 
