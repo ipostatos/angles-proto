@@ -1,27 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { toAngleLabel } from '../domain/angles.js';
 
-// Inlined — no icons.jsx in this project yet
-function SaveIcon() {
-    return (
-        <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ display: "block" }}
-        >
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
-            <polyline points="17 21 17 13 7 13 7 21" />
-            <polyline points="7 3 7 8 15 8" />
-        </svg>
-    );
-}
-
 /* Custom dropdown for ALL/MAIN/STEFAN filter used inside WorkModeOverlay */
 function WorkModeFilterSelect({ value, onChange, t }) {
     const [open, setOpen] = useState(false);
@@ -47,7 +26,7 @@ function WorkModeFilterSelect({ value, onChange, t }) {
 }
 
 /* Single row with checkbox in work mode */
-function WorkModeRow({ row, checked, onToggle, t }) {
+function WorkModeRow({ row, checked, isNext, onToggle, t }) {
     return (
         <div
             onClick={(e) => onToggle(row.id, e)}
@@ -57,6 +36,7 @@ function WorkModeRow({ row, checked, onToggle, t }) {
                 background: t.card, border: `1px solid ${t.border}`,
                 borderRadius: 4, padding: "8px 10px", marginBottom: 4,
                 cursor: "pointer",
+                borderLeft: isNext ? `4px solid ${t.text}` : `1px solid ${t.border}`,
             }}
         >
             <span style={{ fontWeight: 700, fontSize: 18, color: checked ? t.strike : t.text, textDecoration: checked ? "line-through" : "none" }}>{toAngleLabel(row.value)}</span>
@@ -82,7 +62,7 @@ function WorkModeRow({ row, checked, onToggle, t }) {
 }
 
 /* Main fullscreen work-mode overlay */
-function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, onSave, styles, showSaved, theme, onToggleTheme }) {
+function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, showSaved, theme, onToggleTheme }) {
     const [filter, setFilter] = useState("all"); // all | main | stefan
     const [mainSort, setMainSort] = useState("asc");
     const [stefanSort, setStefanSort] = useState("asc");
@@ -128,7 +108,10 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, o
                                 {mainSort === "asc" ? "↑" : "↓"}
                             </button>
                         </div>
-                        {sortedMain.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} t={t} />)}
+                        {sortedMain.map((r, i) => {
+                            const nextIdx = sortedMain.findIndex(x => !checkedAngles.has(x.id));
+                            return <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} isNext={i === nextIdx} onToggle={onToggleCheck} t={t} />;
+                        })}
                     </div>
                 )}
                 {showStefan && sortedStefan.length > 0 && (
@@ -139,7 +122,10 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, o
                                 {stefanSort === "asc" ? "↑" : "↓"}
                             </button>
                         </div>
-                        {sortedStefan.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} t={t} />)}
+                        {sortedStefan.map((r, i) => {
+                            const nextIdx = sortedStefan.findIndex(x => !checkedAngles.has(x.id));
+                            return <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} isNext={i === nextIdx} onToggle={onToggleCheck} t={t} />;
+                        })}
                     </div>
                 )}
                 {sortedMain.length === 0 && sortedStefan.length === 0 && (
