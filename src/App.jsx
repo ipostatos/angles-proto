@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { clamp, toAngleLabel } from './domain/angles.js';
-import { normalizeHoldName as normalizeHoldNameSafe, sanitizeHoldList, sortHolds } from './domain/holds.js';
+import { normalizeHoldName as normalizeHoldNameSafe, sanitizeHoldList } from './domain/holds.js';
 import { isSafeRasterDataUrl, isStrongAdminPassword, WEAK_PINS } from './domain/validation.js';
-import { migrateAndSanitize, unwrapImportedDb, LS_VERSION, DEFAULT_HOLDS } from './domain/migration.js';
+import { migrateAndSanitize, unwrapImportedDb, LS_VERSION, DEFAULT_HOLDS, getSortedHoldNames, findHoldById, findHoldByName } from './domain/migration.js';
 import { loadState, saveState, loadLastModified, touchLastModified, getAndResetDidRecover, LS_KEY, MAX_DB_SIZE_KB } from './storage/db.js';
 import { pushBackup, LS_BACKUPS_KEY } from './storage/backups.js';
 import { hasAdminSession, sha256Hex, ADMIN_HASH_KEY, ADMIN_SESSION_KEY, ADMIN_REMEMBER_KEY } from './storage/auth.js';
@@ -68,23 +68,6 @@ function useDebounce(value, delay) {
 }
 
 /* -------------------- STORAGE: migration + sanitize -------------------- */
-
-function sanitizeAngle(a, holdsSet) {
-    const hold = normalizeHoldNameSafe(a?.hold);
-    const saw = a?.saw === "stefan" ? "stefan" : "main";
-
-    const raw = a?.value;
-    const num = typeof raw === "number" ? raw : Number(String(raw ?? "").replace(",", "."));
-    const value = Number.isFinite(num) ? clamp(num, 0, 90) : 0;
-
-    const id = typeof a?.id === "string" && a.id.trim() ? a.id : cryptoRandomId();
-
-    const drawing = isSafeRasterDataUrl(a?.drawing) ? a.drawing : undefined;
-
-    if (!hold || !holdsSet.has(hold)) return null;
-
-    return { id, hold, value, saw, ...(drawing ? { drawing } : {}) };
-}
 
 
 function useHashRoute() {
@@ -270,17 +253,19 @@ export default function App() {
         }
     }, [data.angles, activeAngleId]);
 
-    const sortedHolds = useMemo(() => sortHolds(data.holds || []), [data.holds]);
+    const sortedHolds = useMemo(() => getSortedHoldNames(data.holds || []), [data.holds]);
 
     const visibleHolds = useMemo(() => {
         const q = holdSearch.trim().toLowerCase();
         if (!q) return sortedHolds;
-        return sortedHolds.filter((name) => String(name).toLowerCase().includes(q));
+        return sortedHolds.filter((h) => h.name.toLowerCase().includes(q));
     }, [sortedHolds, holdSearch]);
 
     const selectedAngles = useMemo(() => {
         const holdsSet = selectedHolds;
-        const all = data.angles.filter((a) => holdsSet.has(a.hold));
+        const all = data.angles
+            .filter((a) => holdsSet.has(a.holdId))
+            .map(a => ({ ...a, hold: findHoldById(data.holds, a.holdId)?.name ?? '' }));
 
         let main = all.filter((a) => a.saw === "main");
         if (mainSort === "asc") {
@@ -308,12 +293,13 @@ export default function App() {
         if (activeAngle?.drawing) return activeAngle.drawing;
 
         if (selectedHolds.size === 1) {
-            const hold = Array.from(selectedHolds)[0];
-            const cover = data?.holdImages?.[hold];
+            const holdId = Array.from(selectedHolds)[0];
+            const hold = findHoldById(data.holds, holdId);
+            const cover = hold?.coverImage;
             if (cover) return cover;
         }
         return null;
-    }, [activeAngle, selectedHolds, data.holdImages]);
+    }, [activeAngle, selectedHolds, data.holds]);
 
     // P1: useCallback handlers
     const toggleHold = useCallback((name) => {
@@ -335,7 +321,15 @@ export default function App() {
     const resumeProgress = useCallback(() => {
         const p = savedProgress;
         if (!p) return;
-        setSelectedHolds(new Set(p.holds));
+        // Guard: if holds look like names (not h_ prefixed), discard stale progress
+        const holdsToSet = p.holds.filter(id => typeof id === 'string' && id.startsWith('h_'));
+        if (holdsToSet.length === 0 && p.holds.length > 0) {
+            // stale v1 progress — discard silently
+            clearWorkProgress();
+            setSavedProgress(null);
+            return;
+        }
+        setSelectedHolds(new Set(holdsToSet));
         setCheckedAngles(new Set(p.checked));
         setPrintMode(p.mode || "all");
         setWorkMode(true);
@@ -926,16 +920,16 @@ export default function App() {
                         )}
 
                         <div style={styles.holdsList} className="holdsList">
-                            {visibleHolds.map((name) => (
-                                <label key={name} style={styles.holdRow} className="holdRow">
+                            {visibleHolds.map((h) => (
+                                <label key={h.id} style={styles.holdRow} className="holdRow">
                                     <input
                                         type="checkbox"
-                                        checked={selectedHolds.has(name)}
-                                        onChange={() => toggleHold(name)}
+                                        checked={selectedHolds.has(h.id)}
+                                        onChange={() => toggleHold(h.id)}
                                         style={styles.checkbox}
                                         className="holdCheckbox"
                                     />
-                                    <span style={styles.holdName} className="holdName">{name}</span>
+                                    <span style={styles.holdName} className="holdName">{h.name}</span>
                                 </label>
                             ))}
                         </div>
