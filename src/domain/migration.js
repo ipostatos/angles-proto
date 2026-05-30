@@ -68,6 +68,82 @@ function sanitizeAngle(a, holdsSet) {
     return { id, hold, value, saw, ...(drawing ? { drawing } : {}) };
 }
 
+export function generateHoldId() {
+    try {
+        return `h_${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(16).slice(2)}`;
+    } catch {
+        return `h_${Math.random().toString(16).slice(2)}`;
+    }
+}
+
+/**
+ * Migrate v1 data (holds as strings, holdImages separate) to v2
+ * (holds as objects with id/name/coverImage, angles use holdId).
+ * Pure function — does not touch localStorage.
+ */
+export function migrateV1toV2(v1) {
+    // 1. Build holds array with stable IDs
+    const holdObjects = (v1.holds || []).map(name => ({
+        id: generateHoldId(),
+        name: String(name),
+        ...(v1.holdImages?.[name] ? { coverImage: v1.holdImages[name] } : {}),
+    }));
+
+    // 2. Build name → id map for angle migration
+    const nameToId = Object.fromEntries(holdObjects.map(h => [h.name, h.id]));
+
+    // 3. Migrate angles: replace hold (name) with holdId
+    const angles = (v1.angles || []).map(a => {
+        const holdId = nameToId[a.hold];
+        if (!holdId) return null; // orphan angle — drop
+        const { hold, ...rest } = a;
+        return { ...rest, holdId };
+    }).filter(Boolean);
+
+    return {
+        version: 2,
+        holds: holdObjects,
+        angles,
+    };
+}
+
+/**
+ * Detect data version.
+ */
+export function detectVersion(data) {
+    if (!data || typeof data !== 'object') return 0;
+    if (data.version === 2) return 2;
+    return 1; // v1 has no version or version:1
+}
+
+function sanitizeV2(data) {
+    const holds = Array.isArray(data.holds)
+        ? data.holds
+            .filter(h => h && typeof h.id === 'string' && typeof h.name === 'string')
+            .map(h => ({
+                id: h.id,
+                name: normalizeHoldName(h.name),
+                ...(isSafeRasterDataUrl(h.coverImage) ? { coverImage: h.coverImage } : {}),
+            }))
+        : [];
+
+    const holdIds = new Set(holds.map(h => h.id));
+
+    const angles = Array.isArray(data.angles)
+        ? data.angles
+            .filter(a => a && typeof a.id === 'string' && holdIds.has(a.holdId))
+            .map(a => ({
+                id: a.id,
+                holdId: a.holdId,
+                value: clamp(Number(a.value) || 0, 0, 90),
+                saw: a.saw === 'stefan' ? 'stefan' : 'main',
+                ...(isSafeRasterDataUrl(a.drawing) ? { drawing: a.drawing } : {}),
+            }))
+        : [];
+
+    return { version: 2, holds, angles };
+}
+
 /** Accepts raw db OR wrapper: { data: { holds, angles, holdImages } } */
 export function unwrapImportedDb(parsed) {
     if (!parsed || typeof parsed !== 'object') return parsed;
@@ -76,6 +152,11 @@ export function unwrapImportedDb(parsed) {
 }
 
 export function migrateAndSanitize(parsed) {
+    // If already v2, validate and return as-is (with basic sanitization)
+    if (detectVersion(parsed) === 2) {
+        return sanitizeV2(parsed);
+    }
+
     const unwrapped = unwrapImportedDb(parsed);
 
     const holds = sanitizeHoldList(unwrapped?.holds ?? DEFAULT_HOLDS);
