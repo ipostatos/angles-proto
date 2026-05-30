@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast';
-import { migrateAndSanitize, DEFAULT_HOLDS, DEFAULT_ANGLES } from '../domain/migration.js';
-import { LS_VERSION } from '../domain/migration.js';
+import { migrateAndSanitize, DEFAULT_HOLDS, DEFAULT_ANGLES, LS_VERSION } from '../domain/migration.js';
+import { migrateV1toV2, detectVersion } from '../domain/migration.js';
 
 export const LS_KEY = 'angles_proto_v1';
 export const LS_LAST_MODIFIED_KEY = 'angles_proto_v1_lastModified';
@@ -42,19 +42,24 @@ export function loadState() {
     try {
         const raw = localStorage.getItem(LS_KEY);
         if (!raw) {
-            const init = migrateAndSanitize({
-                version: LS_VERSION,
+            const v1init = {
+                version: 1,
                 holds: DEFAULT_HOLDS,
                 angles: DEFAULT_ANGLES,
                 holdImages: {},
-            });
+            };
+            const init = migrateAndSanitize(migrateV1toV2(v1init));
             localStorage.setItem(LS_KEY, JSON.stringify(init));
             localStorage.setItem(LS_LAST_MODIFIED_KEY, String(Date.now()));
             return init;
         }
 
         const parsed = JSON.parse(raw);
-        const next = migrateAndSanitize(parsed);
+
+        // Upgrade v1 → v2 if needed
+        const upgraded = detectVersion(parsed) < 2 ? migrateV1toV2(parsed) : parsed;
+
+        const next = migrateAndSanitize(upgraded);
 
         localStorage.setItem(LS_KEY, JSON.stringify(next));
         ensureLastModifiedExists();
