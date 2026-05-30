@@ -1564,8 +1564,8 @@ export default function App() {
 
             {workMode && (
                 <WorkModeOverlay
-                    main={printMode !== "stefan" ? selectedAngles.main : []}
-                    stefan={printMode !== "main" ? selectedAngles.stefan : []}
+                    main={selectedAngles.main}
+                    stefan={selectedAngles.stefan}
                     checkedAngles={checkedAngles}
                     onToggleCheck={toggleAngleCheck}
                     onExit={exitWorkMode}
@@ -2029,6 +2029,27 @@ function PrintTableSection({ title, rows, maxColumnsPerRow, className = "" }) {
 }
 
 function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, onSave, styles, showSaved, theme, onToggleTheme }) {
+    const [filter, setFilter] = React.useState("all"); // all | main | stefan
+    const [mainSort, setMainSort] = React.useState("asc");
+    const [stefanSort, setStefanSort] = React.useState("asc");
+
+    const sortedMain = React.useMemo(() => {
+        const arr = [...main];
+        return mainSort === "asc"
+            ? arr.sort((a, b) => a.value - b.value || a.hold.localeCompare(b.hold))
+            : arr.sort((a, b) => b.value - a.value || a.hold.localeCompare(b.hold));
+    }, [main, mainSort]);
+
+    const sortedStefan = React.useMemo(() => {
+        const arr = [...stefan];
+        return stefanSort === "asc"
+            ? arr.sort((a, b) => a.value - b.value || a.hold.localeCompare(b.hold))
+            : arr.sort((a, b) => b.value - a.value || a.hold.localeCompare(b.hold));
+    }, [stefan, stefanSort]);
+
+    const showMain = filter !== "stefan";
+    const showStefan = filter !== "main";
+
     const dark = theme === "dark";
     const t = {
         bg: dark ? "#111111" : "#f5f7fa",
@@ -2044,38 +2065,63 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, o
     };
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: t.bg, display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
-            <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 80px" }}>
-                {main.length > 0 && (
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 90px" }}>
+                {showMain && sortedMain.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: t.sub, textAlign: "center", marginBottom: 8 }}>MAIN</div>
-                        {main.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} t={t} />)}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "relative", marginBottom: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: t.sub }}>MAIN</span>
+                            <button onClick={() => setMainSort(s => s === "asc" ? "desc" : "asc")} style={{ position: "absolute", right: 0, background: "none", border: "none", cursor: "pointer", color: t.sub, fontSize: 14, padding: "0 4px" }}>
+                                {mainSort === "asc" ? "↑" : "↓"}
+                            </button>
+                        </div>
+                        {sortedMain.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} t={t} />)}
                     </div>
                 )}
-                {stefan.length > 0 && (
+                {showStefan && sortedStefan.length > 0 && (
                     <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: t.sub, textAlign: "center", marginBottom: 8 }}>STEFAN</div>
-                        {stefan.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} t={t} />)}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "relative", marginBottom: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: t.sub }}>STEFAN</span>
+                            <button onClick={() => setStefanSort(s => s === "asc" ? "desc" : "asc")} style={{ position: "absolute", right: 0, background: "none", border: "none", cursor: "pointer", color: t.sub, fontSize: 14, padding: "0 4px" }}>
+                                {stefanSort === "asc" ? "↑" : "↓"}
+                            </button>
+                        </div>
+                        {sortedStefan.map(r => <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} onToggle={onToggleCheck} t={t} />)}
                     </div>
                 )}
-                {main.length === 0 && stefan.length === 0 && (
+                {sortedMain.length === 0 && sortedStefan.length === 0 && (
                     <div style={{ textAlign: "center", color: t.sub, marginTop: 60, fontSize: 14 }}>No holds selected</div>
                 )}
             </div>
             <div style={{
                 position: "fixed", bottom: 0, left: 0, right: 0,
-                padding: "10px 12px env(safe-area-inset-bottom, 0px)",
+                padding: "8px 12px env(safe-area-inset-bottom, 0px)",
                 background: t.footerBg, borderTop: `1px solid ${t.footerBorder}`,
-                display: "flex", gap: 8,
+                display: "flex", flexDirection: "column", gap: 8,
             }}>
-                <button onClick={onToggleTheme} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer" }} title="Toggle theme">
-                    {dark
-                        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                    }
-                </button>
-                <button onClick={onExit} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, flex: 1, height: 44, fontSize: 14, cursor: "pointer" }}>
-                    ← EXIT
-                </button>
+                {/* Filter selector */}
+                <div style={{ display: "flex", gap: 6 }}>
+                    {["all", "main", "stefan"].map(f => (
+                        <button key={f} onClick={() => setFilter(f)} style={{
+                            flex: 1, height: 32, borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600,
+                            background: filter === f ? t.text : t.btnBg,
+                            color: filter === f ? t.card : t.sub,
+                            border: `1px solid ${filter === f ? t.text : t.btnBorder}`,
+                        }}>
+                            {f.toUpperCase()}
+                        </button>
+                    ))}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={onToggleTheme} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer" }}>
+                        {dark
+                            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        }
+                    </button>
+                    <button onClick={onExit} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, flex: 1, height: 44, fontSize: 14, cursor: "pointer" }}>
+                        ← EXIT
+                    </button>
+                </div>
             </div>
 
             {showSaved && (
