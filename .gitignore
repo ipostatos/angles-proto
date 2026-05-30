@@ -1,4 +1,6 @@
 .cursor-context/
+UI/
+.claude/
 node_modules/
 dist/
 .env
