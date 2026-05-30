@@ -2102,12 +2102,12 @@ function WorkModeRow({ row, checked, onToggle, t }) {
                 cursor: "pointer",
             }}
         >
-            <span style={{ fontWeight: 700, fontSize: 15, color: checked ? t.strike : t.text, textDecoration: checked ? "line-through" : "none" }}>{toAngleLabel(row.value)}</span>
-            <span style={{ fontSize: 13, color: checked ? t.strike : t.sub, textDecoration: checked ? "line-through" : "none" }}>{row.hold}</span>
+            <span style={{ fontWeight: 700, fontSize: 18, color: checked ? t.strike : t.text, textDecoration: checked ? "line-through" : "none" }}>{toAngleLabel(row.value)}</span>
+            <span style={{ fontSize: 16, color: checked ? t.strike : t.sub, textDecoration: checked ? "line-through" : "none" }}>{row.hold}</span>
             <div
                 onClick={(e) => onToggle(row.id, e)}
                 style={{
-                    width: 22, height: 22, borderRadius: 4, justifySelf: "center",
+                    width: 18, height: 18, borderRadius: 3, justifySelf: "center",
                     border: `2px solid ${checked ? t.text : t.border}`,
                     background: checked ? t.text : "transparent",
                     display: "flex", alignItems: "center", justifyContent: "center",
@@ -2115,7 +2115,7 @@ function WorkModeRow({ row, checked, onToggle, t }) {
                 }}
             >
                 {checked && (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
                         <polyline points="2,6 5,9 10,3" stroke={t.card} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                 )}
