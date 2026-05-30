@@ -1,11 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { clamp, toAngleLabel } from './angles.js';
 
-// Helpers copied inline from src/App.jsx for isolated unit testing
-function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
-function toAngleLabel(n) {
-  const isInt = Math.abs(Number(n) - Math.round(Number(n))) < 1e-9;
-  return isInt ? `${Math.round(Number(n))}°` : `${Number(n).toFixed(1)}°`;
-}
+// Helpers kept inline — belong to other modules not yet extracted
 function normalizeHoldNameSafe(s) {
   return String(s || '').trim().replace(/\s+/g, ' ');
 }
