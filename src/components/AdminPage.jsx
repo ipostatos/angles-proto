@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { clamp, toAngleLabel } from '../domain/angles.js';
-import { normalizeHoldName as normalizeHoldNameSafe, sortHolds } from '../domain/holds.js';
+import { normalizeHoldName as normalizeHoldNameSafe } from '../domain/holds.js';
+import { getSortedHoldNames, findHoldByName, generateHoldId, migrateAndSanitize } from '../domain/migration.js';
 import { isSafeRasterDataUrl } from '../domain/validation.js';
 import { saveState, loadLastModified, MAX_DB_SIZE_KB, serializedSizeKB } from '../storage/db.js';
 import { pushBackup } from '../storage/backups.js';
 import { ADMIN_SESSION_KEY } from '../storage/auth.js';
 import { downloadJsonFile, readJsonFile } from '../storage/importExport.js';
 import { compressImageFile } from '../utils/image.js';
-import { migrateAndSanitize } from '../domain/migration.js';
 import { SaveIcon } from './icons.jsx';
 import { ConfirmDialog } from './ConfirmDialog.jsx';
 import { SearchIcon } from './icons.jsx';
@@ -150,7 +150,7 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
     const [draftData, setDraftData] = useState(() => data);
 
-    const holdsSafe = useMemo(() => sortHolds(Array.isArray(draftData?.holds) ? draftData.holds : []), [draftData?.holds]);
+    const holdsSafe = useMemo(() => getSortedHoldNames(Array.isArray(draftData?.holds) ? draftData.holds : []), [draftData?.holds]);
     const anglesSafe = Array.isArray(draftData?.angles) ? draftData.angles : [];
 
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -168,14 +168,14 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
     const visibleAdminHolds = useMemo(() => {
         const q = adminHoldSearch.trim().toLowerCase();
         if (!q) return holdsSafe;
-        return holdsSafe.filter((name) => String(name).toLowerCase().includes(q));
+        return holdsSafe.filter((h) => h.name.toLowerCase().includes(q));
     }, [holdsSafe, adminHoldSearch]);
 
     const fileInputRef = useRef(null);
     const uploadTargetIdRef = useRef(null);
     const importDbInputRef = useRef(null);
     const holdCoverInputRef = useRef(null);
-    const uploadHoldNameRef = useRef(null);
+    const uploadHoldIdRef = useRef(null);
 
     const normalizeHoldName = (s) => String(s || "").trim().replace(/\s+/g, " ");
 
@@ -241,86 +241,80 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
     }, [hasUnsavedChanges]);
 
     useEffect(() => {
-        if (selectedProduct && !holdsSafe.includes(selectedProduct)) setSelectedProduct(null);
+        if (selectedProduct && !holdsSafe.some(h => h.id === selectedProduct)) setSelectedProduct(null);
     }, [holdsSafe, selectedProduct]);
 
     const addHold = useCallback(() => {
         const name = normalizeHoldName(newHoldName);
         if (!name) return;
+        let newId;
         updateAdminData((prev) => {
             const prevHolds = Array.isArray(prev.holds) ? prev.holds : [];
-            if (prevHolds.some((h) => String(h).toLowerCase() === name.toLowerCase())) return prev;
-            return { ...prev, holds: sortHolds([...prevHolds, name]) };
+            if (prevHolds.some((h) => h.name.toLowerCase() === name.toLowerCase())) return prev;
+            const newHold = { id: generateHoldId(), name };
+            newId = newHold.id;
+            return { ...prev, holds: getSortedHoldNames([...prevHolds, newHold]) };
         });
         setNewHoldName("");
-        setSelectedProduct(name);
+        if (newId) setSelectedProduct(newId);
     }, [newHoldName, updateAdminData]);
 
-    const confirmRemoveHold = useCallback(async (nameToRemove) => {
-        const cnt = anglesSafe.filter((a) => a.hold === nameToRemove).length;
-        const ok = await askConfirm(cnt > 0 ? `Delete "${nameToRemove}" and ${cnt} angle(s)?` : `Delete "${nameToRemove}"?`);
+    const confirmRemoveHold = useCallback(async () => {
+        const holdId = selectedProduct;
+        const holdObj = holdsSafe.find(h => h.id === holdId);
+        const holdName = holdObj?.name ?? holdId;
+        const cnt = anglesSafe.filter((a) => a.holdId === holdId).length;
+        const ok = await askConfirm(cnt > 0 ? `Delete "${holdName}" and ${cnt} angle(s)?` : `Delete "${holdName}"?`);
         if (!ok) return;
 
-        updateAdminData((prev) => {
-            const nextHoldImages = { ...(prev.holdImages || {}) };
-            delete nextHoldImages[nameToRemove];
+        updateAdminData((prev) => ({
+            ...prev,
+            holds: getSortedHoldNames((prev.holds || []).filter((h) => h.id !== holdId)),
+            angles: (prev.angles || []).filter((a) => a.holdId !== holdId),
+        }));
 
-            return {
-                ...prev,
-                holds: sortHolds((prev.holds || []).filter((h) => h !== nameToRemove)),
-                angles: (prev.angles || []).filter((a) => a.hold !== nameToRemove),
-                holdImages: nextHoldImages,
-            };
-        });
+        setSelectedProduct(null);
+        if (editingHold === holdId) setEditingHold(null);
+    }, [anglesSafe, askConfirm, editingHold, holdsSafe, selectedProduct, updateAdminData]);
 
-        if (selectedProduct === nameToRemove) setSelectedProduct(null);
-        if (editingHold === nameToRemove) setEditingHold(null);
-    }, [anglesSafe, askConfirm, editingHold, selectedProduct, updateAdminData]);
-
-    const startRenameHold = useCallback((h) => {
-        setEditingHold(h);
-        setEditingHoldName(h);
-    }, []);
+    const startRenameHold = useCallback((holdId) => {
+        const holdObj = holdsSafe.find(h => h.id === holdId);
+        setEditingHold(holdId);
+        setEditingHoldName(holdObj?.name ?? "");
+    }, [holdsSafe]);
 
     const cancelRenameHold = useCallback(() => {
         setEditingHold(null);
         setEditingHoldName("");
     }, []);
 
-    const saveRenameHold = useCallback((oldName) => {
+    const saveRenameHold = useCallback((oldId) => {
         const nextName = normalizeHoldName(editingHoldName);
         if (!nextName) return;
 
+        const oldHold = holdsSafe.find(h => h.id === oldId);
         if (
-            nextName.toLowerCase() !== oldName.toLowerCase() &&
-            holdsSafe.some((h) => String(h).toLowerCase() === nextName.toLowerCase())
+            nextName.toLowerCase() !== (oldHold?.name ?? "").toLowerCase() &&
+            holdsSafe.some((h) => h.name.toLowerCase() === nextName.toLowerCase())
         ) return;
 
-        updateAdminData((prev) => {
-            const nextHoldImages = { ...(prev.holdImages || {}) };
-            if (nextHoldImages[oldName]) {
-                nextHoldImages[nextName] = nextHoldImages[oldName];
-                delete nextHoldImages[oldName];
-            }
-
-            return {
-                ...prev,
-                holds: sortHolds((prev.holds || []).map((h) => (h === oldName ? nextName : h))),
-                angles: (prev.angles || []).map((a) => (a.hold === oldName ? { ...a, hold: nextName } : a)),
-                holdImages: nextHoldImages,
-            };
-        });
-
-        setEditingHold(null);
-        if (selectedProduct === oldName) setSelectedProduct(nextName);
-    }, [editingHoldName, holdsSafe, selectedProduct, updateAdminData]);
-
-    const addAngleForHold = useCallback((holdName, saw) => {
         updateAdminData((prev) => ({
             ...prev,
-            angles: [...(prev.angles || []), { id: cryptoRandomId(), hold: holdName, value: 0, saw }],
+            holds: getSortedHoldNames(prev.holds.map(h =>
+                h.id === oldId ? { ...h, name: nextName } : h
+            )),
+            // angles.holdId doesn't change — stable IDs
         }));
-        setSelectedProduct(holdName);
+
+        setEditingHold(null);
+    }, [editingHoldName, holdsSafe, updateAdminData]);
+
+    const addAngleForHold = useCallback((holdId, saw) => {
+        updateAdminData((prev) => ({
+            ...prev,
+            angles: [...(prev.angles || []), { id: cryptoRandomId(), holdId, value: 0, saw }],
+        }));
+        setSelectedProduct(holdId);
     }, [updateAdminData]);
 
     const updateAngle = useCallback((id, patch) => {
@@ -355,19 +349,18 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
     const handleHoldCoverUpload = useCallback((e) => {
         const file = e.target.files?.[0];
-        const holdName = uploadHoldNameRef.current;
+        const holdId = uploadHoldIdRef.current;
         e.target.value = "";
-        uploadHoldNameRef.current = null;
-        if (!file || !holdName) return;
+        uploadHoldIdRef.current = null;
+        if (!file || !holdId) return;
 
         compressImageFile(file, 900, 0.85)
             .then((dataUrl) => {
                 updateAdminData((prev) => ({
                     ...prev,
-                    holdImages: {
-                        ...(prev.holdImages || {}),
-                        [holdName]: dataUrl,
-                    },
+                    holds: prev.holds.map(h =>
+                        h.id === holdId ? { ...h, coverImage: dataUrl } : h
+                    ),
                 }));
             })
             .catch((err) => {
@@ -376,14 +369,15 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
             });
     }, [updateAdminData]);
 
-    const removeHoldCover = useCallback(async (holdName) => {
+    const removeHoldCover = useCallback(async () => {
         if (!(await askConfirm("Remove hold cover image?"))) return;
-        updateAdminData((prev) => {
-            const next = { ...(prev.holdImages || {}) };
-            delete next[holdName];
-            return { ...prev, holdImages: next };
-        });
-    }, [askConfirm, updateAdminData]);
+        updateAdminData((prev) => ({
+            ...prev,
+            holds: prev.holds.map(h =>
+                h.id === selectedProduct ? { ...h, coverImage: undefined } : h
+            ),
+        }));
+    }, [askConfirm, selectedProduct, updateAdminData]);
 
     const exportDb = useCallback(() => {
         const now = new Date();
@@ -440,9 +434,9 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
     const anglesByHold = useMemo(() => {
         const map = new Map();
-        holdsSafe.forEach((h) => map.set(h, []));
+        holdsSafe.forEach((h) => map.set(h.id, []));
         anglesSafe.forEach((a) => {
-            if (map.has(a.hold)) map.get(a.hold).push(a);
+            if (map.has(a.holdId)) map.get(a.holdId).push(a);
         });
         map.forEach((arr) =>
             arr.sort((x, y) => String(x.saw).localeCompare(String(y.saw)) || Number(x.value) - Number(y.value))
@@ -459,7 +453,12 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         [selectedProduct, anglesByHold]
     );
 
-    const selectedCover = selectedProduct ? (draftData?.holdImages?.[selectedProduct] || null) : null;
+    const selectedHoldObj = useMemo(
+        () => holdsSafe.find(h => h.id === selectedProduct) ?? null,
+        [holdsSafe, selectedProduct]
+    );
+
+    const selectedCover = selectedHoldObj?.coverImage ?? null;
 
     return (
         <div style={styles.adminPage} className="admin-page-wrapper">
@@ -680,15 +679,15 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                         </div>
 
                         <div style={styles.holdsList}>
-                            {visibleAdminHolds.map((name) => (
+                            {visibleAdminHolds.map((h) => (
                                 <button
-                                    key={name}
+                                    key={h.id}
                                     type="button"
-                                    onClick={() => setSelectedProduct(name)}
+                                    onClick={() => setSelectedProduct(h.id)}
                                     onMouseDown={(e) => { if (e.shiftKey) e.preventDefault(); }}
-                                    style={{ ...styles.holdRowBtn, ...(selectedProduct === name ? styles.holdRowBtnActive : null) }}
+                                    style={{ ...styles.holdRowBtn, ...(selectedProduct === h.id ? styles.holdRowBtnActive : null) }}
                                 >
-                                    <span style={styles.holdName}>{name}</span>
+                                    <span style={styles.holdName}>{h.name}</span>
                                 </button>
                             ))}
                         </div>
@@ -749,12 +748,12 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                             !editingHold ? (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                     <div style={{ fontSize: 16, color: theme.colors.textPrimary, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        {selectedProduct}
+                                        {selectedHoldObj?.name ?? ''}
                                     </div>
 
                                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                         <button style={styles.btnSmallGhost} onClick={() => startRenameHold(selectedProduct)}>Edit</button>
-                                        <button style={styles.btnX} onClick={() => confirmRemoveHold(selectedProduct)}>×</button>
+                                        <button style={styles.btnX} onClick={() => confirmRemoveHold()}>×</button>
                                     </div>
 
                                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
@@ -765,7 +764,7 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                                 type="button"
                                                 style={styles.btnSmallGhost}
                                                 onClick={() => {
-                                                    uploadHoldNameRef.current = selectedProduct;
+                                                    uploadHoldIdRef.current = selectedProduct;
                                                     holdCoverInputRef.current?.click();
                                                 }}
                                             >
