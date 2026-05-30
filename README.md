@@ -3,8 +3,8 @@
 > Saw-angle reference tool for production workshops — select products, compare MAIN and STEFAN cut angles side-by-side, and print reference sheets.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-avacut.vercel.app-black?style=flat-square&logo=vercel)](https://avacut.vercel.app)
-[![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
-[![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-000?style=flat-square&logo=vercel)](https://vercel.com)
 
 ---
@@ -35,8 +35,8 @@ Admins manage the full product catalogue (products, angles, drawings, cover imag
 
 ## Tech stack
 
-- **React 18** — UI
-- **Vite 5** — build tooling
+- **React 19** — UI
+- **Vite 8** — build tooling
 - **react-hot-toast** — notifications
 - **localStorage** — persistence (no database, no backend)
 - **Vercel** — hosting + security headers (CSP, HSTS, X-Frame-Options)
