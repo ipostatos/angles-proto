@@ -1585,7 +1585,7 @@ export default function App() {
                 <ConfirmDialog
                     message="Discard saved progress?"
                     styles={styles}
-                    onConfirm={() => { clearWorkProgress(); setSavedProgress(null); setShowDiscardProgressConfirm(false); }}
+                    onConfirm={() => { clearWorkProgress(); setSavedProgress(null); setCheckedAngles(new Set()); setShowDiscardProgressConfirm(false); }}
                     onCancel={() => setShowDiscardProgressConfirm(false)}
                 />
             )}
