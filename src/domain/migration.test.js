@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { migrateAndSanitize, unwrapImportedDb, migrateV1toV2, detectVersion } from './migration.js';
+import { migrateAndSanitize, unwrapImportedDb, migrateV1toV2, detectVersion, findHoldById, findHoldByName, getSortedHoldNames, getAnglesForHold, getAnglesBySaw } from './migration.js';
 
 describe('unwrapImportedDb', () => {
     it('unwraps { data: ... } wrapper', () => {
@@ -114,5 +114,46 @@ describe('migrateV1toV2', () => {
         };
         const v2 = migrateV1toV2(v1);
         expect(v2.angles[0].id).toBe('angle-123');
+    });
+});
+
+const sampleHolds = [
+    { id: 'h1', name: 'Zebra' },
+    { id: 'h2', name: 'Austin' },
+    { id: 'h3', name: 'Amon' },
+];
+
+const sampleAngles = [
+    { id: 'a1', holdId: 'h2', value: 28.2, saw: 'main' },
+    { id: 'a2', holdId: 'h2', value: 30.0, saw: 'stefan' },
+    { id: 'a3', holdId: 'h3', value: 45.0, saw: 'main' },
+];
+
+describe('findHoldById', () => {
+    it('finds by id', () => expect(findHoldById(sampleHolds, 'h2')?.name).toBe('Austin'));
+    it('returns undefined for unknown id', () => expect(findHoldById(sampleHolds, 'x')).toBeUndefined());
+});
+
+describe('findHoldByName', () => {
+    it('finds case-insensitively', () => expect(findHoldByName(sampleHolds, 'austin')?.id).toBe('h2'));
+});
+
+describe('getSortedHoldNames', () => {
+    it('sorts alphabetically', () => {
+        const sorted = getSortedHoldNames(sampleHolds);
+        expect(sorted.map(h => h.name)).toEqual(['Amon', 'Austin', 'Zebra']);
+    });
+});
+
+describe('getAnglesForHold', () => {
+    it('returns angles for given holdId', () => {
+        expect(getAnglesForHold(sampleAngles, 'h2')).toHaveLength(2);
+    });
+});
+
+describe('getAnglesBySaw', () => {
+    it('filters by saw', () => {
+        expect(getAnglesBySaw(sampleAngles, 'main')).toHaveLength(2);
+        expect(getAnglesBySaw(sampleAngles, 'stefan')).toHaveLength(1);
     });
 });

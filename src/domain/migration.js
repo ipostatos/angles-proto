@@ -187,3 +187,42 @@ export function migrateAndSanitize(parsed) {
 
     return { version: LS_VERSION, holds, angles, holdImages };
 }
+
+/**
+ * Find hold by ID in a v2 holds array.
+ * Returns undefined if not found.
+ */
+export function findHoldById(holds, holdId) {
+    return holds.find(h => h.id === holdId);
+}
+
+/**
+ * Find hold by name in a v2 holds array (case-insensitive).
+ */
+export function findHoldByName(holds, name) {
+    const lower = String(name).toLowerCase();
+    return holds.find(h => h.name.toLowerCase() === lower);
+}
+
+/**
+ * Get sorted hold names for display (v2).
+ */
+export function getSortedHoldNames(holds) {
+    return [...holds].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+}
+
+/**
+ * Filter angles by holdId (v2).
+ */
+export function getAnglesForHold(angles, holdId) {
+    return angles.filter(a => a.holdId === holdId);
+}
+
+/**
+ * Filter angles by saw type (v2).
+ */
+export function getAnglesBySaw(angles, saw) {
+    return angles.filter(a => a.saw === saw);
+}
