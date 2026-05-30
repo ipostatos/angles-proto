@@ -2094,34 +2094,20 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, o
             </div>
             <div style={{
                 position: "fixed", bottom: 0, left: 0, right: 0,
-                padding: "8px 12px env(safe-area-inset-bottom, 0px)",
+                padding: "10px 12px env(safe-area-inset-bottom, 0px)",
                 background: t.footerBg, borderTop: `1px solid ${t.footerBorder}`,
-                display: "flex", flexDirection: "column", gap: 8,
+                display: "flex", gap: 8,
             }}>
-                {/* Filter selector */}
-                <div style={{ display: "flex", gap: 6 }}>
-                    {["all", "main", "stefan"].map(f => (
-                        <button key={f} onClick={() => setFilter(f)} style={{
-                            flex: 1, height: 32, borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: 600,
-                            background: filter === f ? t.text : t.btnBg,
-                            color: filter === f ? t.card : t.sub,
-                            border: `1px solid ${filter === f ? t.text : t.btnBorder}`,
-                        }}>
-                            {f.toUpperCase()}
-                        </button>
-                    ))}
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={onToggleTheme} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer" }}>
-                        {dark
-                            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                            : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                        }
-                    </button>
-                    <button onClick={onExit} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, flex: 1, height: 44, fontSize: 14, cursor: "pointer" }}>
-                        ← EXIT
-                    </button>
-                </div>
+                <button onClick={onToggleTheme} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, cursor: "pointer" }}>
+                    {dark
+                        ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                        : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    }
+                </button>
+                <WorkModeFilterSelect value={filter} onChange={setFilter} t={t} />
+                <button onClick={onExit} style={{ background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, flex: 1, height: 44, fontSize: 14, cursor: "pointer" }}>
+                    ← EXIT
+                </button>
             </div>
 
             {showSaved && (
@@ -2142,6 +2128,29 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, o
                         </svg>
                         Progress saved
                     </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function WorkModeFilterSelect({ value, onChange, t }) {
+    const [open, setOpen] = React.useState(false);
+    const options = [{ v: "all", l: "ALL" }, { v: "main", l: "MAIN" }, { v: "stefan", l: "STEFAN" }];
+    const current = options.find(o => o.v === value);
+    return (
+        <div style={{ position: "relative", width: 90, flexShrink: 0 }}>
+            <button onClick={() => setOpen(v => !v)} style={{ width: "100%", height: 44, background: t.btnBg, border: `1px solid ${t.btnBorder}`, color: t.text, borderRadius: 4, cursor: "pointer", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 10px" }}>
+                <span>{current.l}</span>
+                <span style={{ fontSize: 9, opacity: 0.6 }}>{open ? "▲" : "▼"}</span>
+            </button>
+            {open && (
+                <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, right: 0, background: t.card, border: `1px solid ${t.btnBorder}`, borderRadius: 6, overflow: "hidden", zIndex: 50 }}>
+                    {options.map(o => (
+                        <button key={o.v} onClick={() => { onChange(o.v); setOpen(false); }} style={{ display: "block", width: "100%", padding: "10px 12px", textAlign: "left", border: "none", cursor: "pointer", fontSize: 13, fontWeight: o.v === value ? 700 : 400, background: o.v === value ? t.btnBorder : "transparent", color: t.text }}>
+                            {o.l}
+                        </button>
+                    ))}
                 </div>
             )}
         </div>
