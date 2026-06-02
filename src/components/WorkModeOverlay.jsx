@@ -64,7 +64,7 @@ function WorkModeRow({ row, checked, isNext, onToggle, t }) {
 /* Main fullscreen work-mode overlay */
 function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, showSaved, theme, onToggleTheme }) {
     const [filter, setFilter] = useState("all"); // all | main | stefan
-    const [mainSort, setMainSort] = useState("asc");
+    const [mainSort, setMainSort] = useState("desc");
     const [stefanSort, setStefanSort] = useState("asc");
 
     const sortedMain = useMemo(() => {
