@@ -36,7 +36,7 @@ function WorkModeRow({ row, checked, isNext, onToggle, t }) {
                 background: t.card, border: `1px solid ${t.border}`,
                 borderRadius: 4, padding: "8px 10px", marginBottom: 4,
                 cursor: "pointer",
-                borderLeft: isNext ? `4px solid ${t.text}` : `1px solid ${t.border}`,
+                borderLeft: isNext ? `4px solid ${t.next}` : `1px solid ${t.border}`,
             }}
         >
             <span style={{ fontWeight: 700, fontSize: 18, color: checked ? t.strike : t.text, textDecoration: checked ? "line-through" : "none" }}>{toAngleLabel(row.value)}</span>
@@ -92,6 +92,7 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, s
         text: dark ? "#e8e8e8" : "#1a1a1a",
         sub: dark ? "#999999" : "#888888",
         strike: dark ? "#555" : "#bbb",
+        next: dark ? "#22c55e" : "#16a34a",
         footerBg: dark ? "#1a1a1a" : "#ffffff",
         footerBorder: dark ? "#2a2a2a" : "#e8e8e8",
         btnBg: dark ? "#2a2a2a" : "#ffffff",
