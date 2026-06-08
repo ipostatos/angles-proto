@@ -265,15 +265,15 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
             setDraftData(saved.data);
             setHasUnsavedChanges(false);
             if (adminView === "history") refreshHistory();
-            toast.success("База сохранена");
+            toast.success("Catalog saved");
         } catch (err) {
             console.warn("Shared save failed:", err);
             if (err?.status === 409 || err?.code === "stale_revision") {
-                toast.error("База уже изменилась. Обновите страницу и повторите правку.", { duration: 7000 });
+                toast.error("The catalog changed elsewhere. Reload the page and reapply your edit.", { duration: 7000 });
             } else if (err?.status === 401) {
-                toast.error("Сессия истекла. Войдите снова.");
+                toast.error("Session expired. Please sign in again.");
             } else {
-                toast.error("Не удалось сохранить базу. Попробуйте снова.");
+                toast.error("Could not save the catalog. Please try again.");
             }
         } finally {
             setSaving(false);
@@ -576,7 +576,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
           }
 
           .holdsList {
-            max-height: 30vh !important;
+            max-height: 38vh !important;
           }
 
           .table {
@@ -824,9 +824,9 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
 
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                                 <span style={{ fontSize: 11, color: theme.colors.textTertiary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {currentUser ? `Вход: ${currentUser}` : ""}
+                                    {currentUser ? `Signed in: ${currentUser}` : ""}
                                 </span>
-                                <button type="button" style={styles.btnGhost} onClick={onLogout}>Выйти</button>
+                                <button type="button" style={styles.btnGhost} onClick={onLogout}>Sign out</button>
                             </div>
 
                             <div className="adminFooterMeta" style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.3 }}>
@@ -847,11 +847,13 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
                 {adminView === "history" ? (
                     <Card style={{ ...styles.card, gridColumn: "2 / 5" }}>
                         <div style={styles.tableBody}>
-                            <div style={{ ...styles.tableHeader, marginBottom: 12 }}>
-                                <div style={styles.tableTitleCenter}>ИСТОРИЯ ИЗМЕНЕНИЙ</div>
+                            <div style={{ ...styles.tableHeader, justifyContent: "space-between", marginBottom: 12 }}>
+                                <div style={{ ...styles.tableTitleCenter, textAlign: "left", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    CHANGE HISTORY
+                                </div>
                                 <button
                                     type="button"
-                                    style={{ ...styles.btnSmallGhost, position: "absolute", right: 0 }}
+                                    style={{ ...styles.btnSmallGhost, flex: "0 0 auto" }}
                                     onClick={refreshHistory}
                                     disabled={historyStatus === "loading"}
                                 >
@@ -861,7 +863,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
 
                             {historyStatus === "error" ? (
                                 <div style={{ fontSize: 12, color: theme.colors.textMuted, textAlign: "center", padding: 24 }}>
-                                    Не удалось загрузить историю.
+                                    Could not load history.
                                 </div>
                             ) : historyStatus === "loading" ? (
                                 <div style={{ fontSize: 12, color: theme.colors.textMuted, textAlign: "center", padding: 24 }}>
@@ -869,7 +871,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
                                 </div>
                             ) : historyRows.length === 0 ? (
                                 <div style={{ fontSize: 12, color: theme.colors.textMuted, textAlign: "center", padding: 24 }}>
-                                    История пока пуста.
+                                    No changes yet.
                                 </div>
                             ) : (
                                 <div style={{ ...styles.table, gap: 6 }}>
