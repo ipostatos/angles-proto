@@ -12,7 +12,7 @@
 | D2 | Default `admin`/`admin` bootstrap | SEV-HIGH | S | Auth | **DONE** — removed; named users are server-seeded |
 | D3 | Client-side SHA-256 password hash in `localStorage` | SEV-HIGH | M | Crypto | **DONE** — passwords are server-side scrypt hashes in Neon |
 | D4 | Weak seeded passwords (`password = username`) | SEV-HIGH | S | Auth | **DONE** — explicit env passwords required by default |
-| D5 | Distributed login rate limit/lockout | SEV-HIGH | S-M | Anti-abuse | PARTIAL — best-effort in-memory throttle |
+| D5 | Distributed login rate limit/lockout | SEV-HIGH | S-M | Anti-abuse | **DONE** — Neon-backed throttle shared across serverless instances |
 | D6 | Security headers / CSP | SEV-MEDIUM | S | Config | **DONE** — `vercel.json` |
 | D7 | JSON import accepts SVG | SEV-MEDIUM | S | Input validation | **DONE** — raster data URL allowlist |
 | D8 | Shared catalog in browser `localStorage` | SEV-MEDIUM | M | Data-at-rest | **DONE** — shared catalog moved to Neon |
@@ -42,10 +42,17 @@ identity provider.
 
 ### D5 — Login Rate Limiting
 
-Accept fully when `/api/login` uses a distributed throttle/lockout keyed by
-username and source signal, with generic errors and no password enumeration.
-The current in-memory throttle is a useful first layer but does not share state
-across serverless instances.
+`/api/login` throttles by `${ip}:${username}` using a Neon-backed counter
+(`login_attempts` table) with a 15-minute sliding window and an 8-failure
+lockout, so the limit is shared across serverless instances. The
+increment/reset is a single atomic UPSERT; the limiter **fails open** if the
+store is unavailable, so a throttle-DB outage degrades brute-force protection
+rather than locking everyone out. Errors stay generic (`429 too_many_attempts`)
+with no password enumeration. Logic in `api/_lib/rateLimit.js`, storage in
+`api/_lib/rateLimitStore.js`.
+
+Future improvement: prune expired `login_attempts` rows on a schedule (currently
+they accumulate until a key is reused or cleared).
 
 ### D10 — Dependency / Audit Drift
 

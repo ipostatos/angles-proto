@@ -27,3 +27,14 @@ CREATE TABLE IF NOT EXISTS change_log (
 );
 
 CREATE INDEX IF NOT EXISTS change_log_created_at_idx ON change_log (created_at DESC);
+
+-- Distributed login throttle: one row per (ip:username) key, shared across
+-- serverless instances. `reset_at` is the end of the current sliding window;
+-- a request past it starts a fresh window.
+CREATE TABLE IF NOT EXISTS login_attempts (
+  key       TEXT PRIMARY KEY,
+  fail_count INT NOT NULL DEFAULT 0,
+  reset_at  TIMESTAMPTZ NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS login_attempts_reset_at_idx ON login_attempts (reset_at);

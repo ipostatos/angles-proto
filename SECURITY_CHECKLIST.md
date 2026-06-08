@@ -24,7 +24,7 @@
 - [✅] No password hash or bearer token in localStorage
 - [✅] Logout clears the session cookie
 - [✅] Seeded users require explicit env passwords by default
-- [⚠️] Login has best-effort in-memory rate limiting; distributed lockout still pending
+- [✅] Login rate limiting is distributed (Neon-backed, shared across instances)
 
 ## 3. Authorization
 
@@ -42,7 +42,7 @@
 - [✅] `PUT /api/state` validates body shape server-side
 - [✅] Optimistic revision locking prevents stale overwrite
 - [✅] Change log is derived server-side from old/new catalog snapshots
-- [⚠️] Login is rate-limited in-memory; no shared/distributed limiter yet
+- [✅] Login is rate-limited via a shared Neon-backed throttle (15-min window, fail-open)
 - [⚠️] No centralized monitoring/alerting
 
 ## 5. Input Validation / Injection

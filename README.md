@@ -126,7 +126,7 @@ Security headers are configured in [`vercel.json`](vercel.json): CSP, HSTS, `X-F
 Known limitations:
 
 - Seeded passwords must be supplied through env; `password = username` is opt-in only via `ALLOW_WEAK_SEED_PASSWORDS=true`.
-- `/api/login` has best-effort in-memory rate limiting; production-grade distributed throttling still needs shared storage.
+- `/api/login` is rate-limited by a shared Neon-backed throttle (per IP + username, 15-min window); it fails open if the throttle store is unavailable.
 - Public catalog read is intentional; admin writes and history require a valid session.
 - Secrets stay server-side only (`DATABASE_URL`, `SESSION_SECRET`).
 

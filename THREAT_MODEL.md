@@ -89,8 +89,8 @@ Admin browser
 - **T-S1 — Guess admin credentials.** Seed passwords are provided through
   server-side env by default; the legacy password = username seed mode is
   explicit opt-in only. **Mitigation:** server-side scrypt hashes, httpOnly
-  cookies, login throttling, no client-side password storage. **Residual:**
-  Medium until distributed rate limiting/password rotation exist.
+  cookies, distributed login throttling, no client-side password storage.
+  **Residual:** Low–Medium until self-service password rotation exists.
 - **T-S2 — Forge session cookie.** Session token is HMAC-signed with
   `SESSION_SECRET`. **Mitigation:** `verifySession`, timing-safe signature check,
   expiry, httpOnly cookie. **Residual:** Low if `SESSION_SECRET` stays secret.
@@ -126,9 +126,10 @@ Admin browser
 
 - **T-D1 — Oversized import/images.** File-size and serialized-size guards plus
   image compression reduce browser storage/memory risk. **Residual:** Low.
-- **T-D2 — Login brute force.** `/api/login` has best-effort in-memory
-  throttling keyed by username and source IP. **Residual:** Medium for exposed
-  deployments until the limiter uses shared storage across serverless instances.
+- **T-D2 — Login brute force.** `/api/login` throttles by username + source IP
+  using a Neon-backed counter shared across serverless instances (15-min window,
+  8-failure lockout, fails open on store outage). **Residual:** Low for exposed
+  deployments; an attacker rotating source IPs still gets per-IP attempts.
 - **T-D3 — Backend/database outage.** Public app shows "Нет связи с сервером" and
   retry; no offline catalog fallback. **Residual:** Accepted online-only design.
 
@@ -144,7 +145,7 @@ Admin browser
 
 ## 7. Key Risks Carried Forward
 
-1. Login throttling is currently in-memory, not distributed across serverless instances.
+1. Login throttling fails open on a throttle-store outage (availability over strictness).
 2. Online-only dependency on Vercel Functions and Neon availability.
 3. Public catalog read is intentional but should remain clearly documented.
 4. No automatic merge/reapply for stale admin edits.
