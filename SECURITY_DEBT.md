@@ -19,8 +19,8 @@
 | D9 | Device-local work progress in `localStorage` | SEV-LOW | S | Privacy | ACCEPTED — no credentials/catalog; local UI state only |
 | D10 | Dependency / audit drift | SEV-MEDIUM | S-M | Supply chain | OPEN — run/maintain `npm audit` and upgrades |
 | D11 | No CI/CD security gates | SEV-LOW | M | SDLC | PARTIAL — CI runs lint/test/build/audit + gitleaks secret scan; branch protection is a GitHub-UI setup step |
-| D12 | Global `outline:none` removes focus visibility | SEV-LOW | S | A11y | OPEN |
-| D13 | `printImage` uses `document.write` into iframe | SEV-LOW | S | Hardening | OPEN (info) |
+| D12 | Global `outline:none` removes focus visibility | SEV-LOW | S | A11y | **DONE** — keyboard `:focus-visible` ring restored |
+| D13 | `printImage` uses `document.write` into iframe | SEV-LOW | S | Hardening | **DONE** — rebuilt via DOM APIs, no `document.write` |
 | D14 | No documented DB backup/restore procedure | SEV-MEDIUM | S | Operations | **DONE** — `docs/OPERATIONS.md` |
 | R1 | DB dumps in git history | SEV-HIGH (was) | — | Data exposure | **RESOLVED** (monitor residual public clones/caches) |
 

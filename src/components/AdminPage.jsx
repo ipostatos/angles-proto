@@ -699,17 +699,29 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
         }
 
         button, [role="button"], input, select, label, a, summary {
-          outline: none !important;
           -webkit-tap-highlight-color: transparent;
         }
-        button:focus, button:focus-visible,
-        [role="button"]:focus, [role="button"]:focus-visible,
-        input:focus, input:focus-visible,
-        input[type="checkbox"]:focus, input[type="checkbox"]:focus-visible,
-        select:focus, select:focus-visible,
-        label:focus, a:focus, a:focus-visible {
+        /* Suppress the focus ring for pointer interaction only — :focus without
+           :focus-visible is mouse/touch. Keyboard focus keeps a visible ring
+           below for accessibility. */
+        button:focus:not(:focus-visible),
+        [role="button"]:focus:not(:focus-visible),
+        input:focus:not(:focus-visible),
+        select:focus:not(:focus-visible),
+        label:focus:not(:focus-visible),
+        a:focus:not(:focus-visible),
+        summary:focus:not(:focus-visible) {
           outline: none !important;
           box-shadow: none !important;
+        }
+        button:focus-visible,
+        [role="button"]:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        a:focus-visible,
+        summary:focus-visible {
+          outline: 2px solid ${theme.colors.textPrimary} !important;
+          outline-offset: 2px !important;
         }
         button::-moz-focus-inner { border: 0; }
       `}</style>

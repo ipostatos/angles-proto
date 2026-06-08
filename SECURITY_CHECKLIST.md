@@ -77,8 +77,8 @@
 - [✅] No third-party scripts
 - [✅] No PII in URLs
 - [✅] ErrorBoundary avoids raw stack display to users
-- [⚠️] Global focus-outline suppression remains an accessibility debt
-- [⚠️] `printImage` uses `document.write` into an isolated iframe
+- [✅] Keyboard focus ring restored via `:focus-visible` (pointer focus stays clean)
+- [✅] `printImage` builds the iframe via DOM APIs (no `document.write`)
 
 ## 9. CSRF / CORS
 
