@@ -10,18 +10,25 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src --report-unused-disable-directives --max-warnings 0",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --audit-level=high",
+    "db:setup": "node scripts/db-setup.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-hot-toast": "^2.6.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.7",
+    "eslint": "^10.4.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
     "jsdom": "^29.1.1",
     "vite": "^8.0.14",
     "vitest": "^4.1.7"

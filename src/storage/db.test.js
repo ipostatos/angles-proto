@@ -13,7 +13,88 @@ const localStorageMock = {
 };
 vi.stubGlobal('localStorage', localStorageMock);
 
-import { loadLastModified, touchLastModified, serializedSizeKB } from './db.js';
+import { loadLastModified, touchLastModified, serializedSizeKB, loadState, saveState } from './db.js';
+
+function fetchResolving(body, { ok = true, status = 200 } = {}) {
+    return vi.fn(() => Promise.resolve({ ok, status, json: () => Promise.resolve(body) }));
+}
+
+const validBody = {
+    data: {
+        version: 2,
+        holds: [{ id: 'h1', name: 'Austin' }],
+        angles: [{ id: 'a1', holdId: 'h1', value: 30, saw: 'main' }],
+    },
+    revision: 5,
+};
+
+describe('loadState (async GET /api/state)', () => {
+    it('calls GET /api/state', async () => {
+        const f = fetchResolving(validBody);
+        globalThis.fetch = f;
+        await loadState();
+        expect(f).toHaveBeenCalledWith('/api/state', expect.anything());
+    });
+
+    it('returns { data, revision }', async () => {
+        globalThis.fetch = fetchResolving(validBody);
+        const result = await loadState();
+        expect(result.revision).toBe(5);
+        expect(result.data.version).toBe(2);
+        expect(result.data.holds).toHaveLength(1);
+        expect(result.data.angles).toHaveLength(1);
+    });
+
+    it('throws on a non-200 response', async () => {
+        globalThis.fetch = fetchResolving({}, { ok: false, status: 500 });
+        await expect(loadState()).rejects.toThrow();
+    });
+
+    it('throws on an invalid response shape', async () => {
+        globalThis.fetch = fetchResolving({ nope: true });
+        await expect(loadState()).rejects.toThrow();
+    });
+
+    it('throws on a network error', async () => {
+        globalThis.fetch = vi.fn(() => Promise.reject(new Error('offline')));
+        await expect(loadState()).rejects.toThrow();
+    });
+});
+
+describe('saveState (async PUT /api/state)', () => {
+    it('sends data + revision to PUT /api/state and returns saved state', async () => {
+        const f = fetchResolving({ ...validBody, revision: 6, changes: 1 });
+        globalThis.fetch = f;
+        const result = await saveState(validBody.data, 5);
+        expect(f).toHaveBeenCalledWith('/api/state', expect.objectContaining({
+            method: 'PUT',
+            credentials: 'same-origin',
+            body: JSON.stringify({ data: validBody.data, revision: 5 }),
+        }));
+        expect(result.revision).toBe(6);
+        expect(result.changes).toBe(1);
+        expect(result.data.holds).toHaveLength(1);
+    });
+
+    it('throws status/code details on stale revision', async () => {
+        globalThis.fetch = fetchResolving(
+            { error: 'stale_revision', message: 'Catalog changed', currentRevision: 6 },
+            { ok: false, status: 409 },
+        );
+        await expect(saveState(validBody.data, 5)).rejects.toMatchObject({
+            status: 409,
+            code: 'stale_revision',
+            currentRevision: 6,
+        });
+    });
+
+    it('throws before fetch when revision is missing', async () => {
+        const f = vi.fn();
+        globalThis.fetch = f;
+        await expect(saveState(validBody.data, null)).rejects.toMatchObject({ code: 'missing_revision' });
+        expect(f).not.toHaveBeenCalled();
+    });
+});
 
 describe('loadLastModified', () => {
     beforeEach(() => store.clear());

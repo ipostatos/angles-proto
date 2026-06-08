@@ -1,0 +1,26 @@
+# gitleaks config — secret scanning for angles-proto.
+# Extends the built-in default ruleset; only adds allowlisting for known-safe
+# placeholders so the scan stays signal-heavy. Real secrets live only in Vercel
+# env / .env.local (gitignored), never in the repo.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known-safe placeholders and generated artifacts"
+
+# Files that contain illustrative, non-secret placeholders by design.
+paths = [
+  '''\.env\.example$''',
+  '''package-lock\.json$''',
+  # Docs intentionally show example connection strings / commands.
+  '''README\.md$''',
+  '''docs/OPERATIONS\.md$''',
+]
+
+# Placeholder values used across env examples and docs.
+regexes = [
+  '''replace-with-a-[a-z-]+''',
+  '''postgresql://user:password@host\.neon\.tech''',
+  '''long-random-secret''',
+]

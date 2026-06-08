@@ -39,9 +39,9 @@ After any significant refactor, verify this checklist manually at https://avacut
 
 ## Admin Workflow
 
-- [ ] 27. Enter admin (ADMIN button) → PIN prompt
-- [ ] 28. Wrong PIN → shake animation
-- [ ] 29. Correct PIN → admin panel opens
+- [ ] 27. Enter admin (ADMIN button) → username/password prompt
+- [ ] 28. Wrong credentials → error + shake animation
+- [ ] 29. Correct named-user login → admin panel opens and shows current user
 - [ ] 30. Add new hold
 - [ ] 31. Rename hold → angles remain (stable IDs)
 - [ ] 32. Delete hold → its angles also removed
@@ -50,27 +50,38 @@ After any significant refactor, verify this checklist manually at https://avacut
 - [ ] 35. Upload drawing for angle
 - [ ] 36. Upload hold cover image
 - [ ] 37. Remove hold cover image
-- [ ] 38. SAVE → toast confirmation
+- [ ] 38. SAVE → shared backend save succeeds and toast confirms
 - [ ] 39. BACK with unsaved changes → confirm dialog
+- [ ] 40. Logout → admin locks and main page remains public
 
 ## Import / Export
 
-- [ ] 40. EXPORT → downloads JSON file
-- [ ] 41. IMPORT → confirm dialog → replaces data
-- [ ] 42. Import v1 JSON (old format) → data loads correctly
-- [ ] 43. Export then import roundtrip → no data loss
+- [ ] 41. EXPORT → downloads JSON file
+- [ ] 42. IMPORT → confirm dialog → stages replacement draft
+- [ ] 43. Imported draft persists only after SAVE
+- [ ] 44. Import v1 JSON (old format) → data loads correctly
+- [ ] 45. Export then import roundtrip → no data loss
+
+## Shared Backend / History
+
+- [ ] 46. Reload page → catalog loads from shared backend
+- [ ] 47. SAVE with stale revision → conflict toast; draft remains unsaved
+- [ ] 48. HISTORY tab loads change rows newest-first
+- [ ] 49. Another user's change → startup modal "{username} изменил базу"
+- [ ] 50. Startup modal OK → admin opens on HISTORY tab
+- [ ] 51. Own latest change → no startup modal
 
 ## Data Resilience
 
-- [ ] 44. Reload page → data persists
-- [ ] 45. Clear localStorage manually → app resets to defaults gracefully
-- [ ] 46. Import oversized file → rejected with error
+- [ ] 52. Clear localStorage manually → work progress/theme/seen-change reset only
+- [ ] 53. Import oversized file → rejected with error
+- [ ] 54. No backend connection → "Нет связи с сервером" retry state
 
 ## Security Headers (check with curl -I)
 
-- [ ] 47. Content-Security-Policy present
-- [ ] 48. Strict-Transport-Security present
-- [ ] 49. X-Frame-Options: DENY
+- [ ] 55. Content-Security-Policy present
+- [ ] 56. Strict-Transport-Security present
+- [ ] 57. X-Frame-Options: DENY
 
 ---
 

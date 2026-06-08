@@ -24,8 +24,25 @@ jobs:
       - name: Security audit
         run: npm audit --audit-level=high
 
+      - name: Lint
+        run: npm run lint
+
       - name: Test
         run: npm test
 
       - name: Build
         run: npm run build
+
+  secret-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans commit history, not just the tip, so fetch it all.
+          fetch-depth: 0
+
+      - name: Scan for committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

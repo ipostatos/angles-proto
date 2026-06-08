@@ -1,5 +1,13 @@
 # SECURITY AUDIT — angles-proto
 
+> **Historical note (2026-06-08):** this audit was written before the
+> shared-backend migration. The app now has Vercel Functions, Neon Postgres,
+> server-side scrypt password verification, httpOnly session cookies,
+> authenticated writes/history, revision locking, and an audit log. Treat this
+> file as the pre-backend baseline. Current security posture is tracked in
+> [`THREAT_MODEL.md`](THREAT_MODEL.md), [`SECURITY_CHECKLIST.md`](SECURITY_CHECKLIST.md),
+> and [`SECURITY_DEBT.md`](SECURITY_DEBT.md).
+
 > Defensive AppSec review before production launch. **Audit only** — no code was modified to produce this report.
 > Date: 2026-05-29 · Reviewer: AppSec review pass · Commit baseline: `a4475fb` (post history-rewrite)
 
@@ -246,18 +254,18 @@ There is **no server-side trust boundary**. Everything the client "enforces" is 
 - **Category:** Accessibility (security-adjacent)
 - **Problem:** Keyboard focus visibility removed globally; not a vulnerability but degrades accessible/secure operation.
 - **Recommended Fix:** Provide a visible `:focus-visible` style instead of suppressing outlines.
-- **Status:** OPEN
+- **Status:** RESOLVED — pointer focus stays clean (`:focus:not(:focus-visible)`); keyboard `:focus-visible` shows a 2px outline in `App.jsx` and `AdminPage.jsx`.
 
 ---
 
 ### SEV-LOW — Print flow uses `document.write` into an iframe
 
-- **File:** `src/App.jsx` `printImage` L363–L399
+- **File:** `src/utils/image.js` `printImage`
 - **Category:** Injection surface review (no exploit found)
-- **Problem:** `printImage` builds a **static** HTML template via `doc.write` and sets the image via `img.src = src` (property assignment, not string interpolation). The `src` is a user-controlled data/blob URL but is never concatenated into HTML.
-- **Risk:** No HTML/script injection path identified. Listed as a reviewed surface; if the template is ever changed to interpolate user input into the written HTML string, it becomes XSS-prone.
-- **Recommended Fix:** Keep `src` as a property assignment; never interpolate user data into the `doc.write` string. Consider building the DOM via `createElement` instead of `doc.write`.
-- **Status:** OPEN (informational)
+- **Problem:** `printImage` previously built a **static** HTML template via `doc.write` and set the image via `img.src = src` (property assignment, not string interpolation). The `src` is a user-controlled data/blob URL but was never concatenated into HTML.
+- **Risk:** No HTML/script injection path identified; the residual concern was that a future edit could interpolate user input into the written HTML string.
+- **Recommended Fix:** Build the DOM via `createElement` instead of `doc.write`.
+- **Status:** RESOLVED — rebuilt with `createElement`/`textContent`; no `document.write` and no HTML strings. The image URL only ever reaches `img.src`.
 
 ---
 

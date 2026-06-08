@@ -1,13 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { clamp, toAngleLabel } from '../domain/angles.js';
-import { normalizeHoldName as normalizeHoldNameSafe } from '../domain/holds.js';
-import { getSortedHoldNames, findHoldByName, generateHoldId, migrateAndSanitize } from '../domain/migration.js';
-import { isSafeRasterDataUrl } from '../domain/validation.js';
-import { saveState, loadLastModified, MAX_DB_SIZE_KB, serializedSizeKB } from '../storage/db.js';
+import { getSortedHoldNames, generateHoldId, migrateAndSanitize } from '../domain/migration.js';
+import { saveState, MAX_DB_SIZE_KB, serializedSizeKB } from '../storage/db.js';
 import { pushBackup } from '../storage/backups.js';
-import { ADMIN_SESSION_KEY } from '../storage/auth.js';
 import { downloadJsonFile, readJsonFile } from '../storage/importExport.js';
+import { loadHistory } from '../storage/history.js';
 import { compressImageFile } from '../utils/image.js';
 import { SaveIcon } from './icons.jsx';
 import { ConfirmDialog } from './ConfirmDialog.jsx';
@@ -39,6 +37,35 @@ export function formatLastModified(ms) {
     } catch {
         return "—";
     }
+}
+
+function formatHistoryDate(value) {
+    if (!value) return "—";
+    const ts = Date.parse(value);
+    if (!Number.isFinite(ts)) return "—";
+    return formatLastModified(ts);
+}
+
+function formatHistoryAction(row) {
+    const action = String(row?.action || '');
+    const labels = {
+        hold_added: "Hold added",
+        hold_renamed: "Hold renamed",
+        hold_deleted: "Hold deleted",
+        angle_added: "Angle added",
+        angle_changed: "Angle changed",
+        angle_deleted: "Angle deleted",
+    };
+    return labels[action] || action || "Change";
+}
+
+function formatHistoryChange(row) {
+    const oldValue = row?.oldValue;
+    const newValue = row?.newValue;
+    if (oldValue == null && newValue == null) return "—";
+    if (oldValue == null) return `+ ${newValue}`;
+    if (newValue == null) return `${oldValue} → deleted`;
+    return `${oldValue} → ${newValue}`;
 }
 
 
@@ -145,13 +172,13 @@ export function AdminAngleRow({ angle, onUpdate, onRemove, onUpload, onRemoveIma
 }
 
 /* ===================== ADMIN PAGE ===================== */
-export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
+export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initialView = "catalog", onHistoryViewed, onExit, onLogout, currentUser, lastModifiedMs }) {
     const styles = useMemo(() => getStyles(theme), []);
 
     const [draftData, setDraftData] = useState(() => data);
 
-    const holdsSafe = useMemo(() => getSortedHoldNames(Array.isArray(draftData?.holds) ? draftData.holds : []), [draftData?.holds]);
-    const anglesSafe = Array.isArray(draftData?.angles) ? draftData.angles : [];
+    const holdsSafe = useMemo(() => getSortedHoldNames(Array.isArray(draftData?.holds) ? draftData.holds : []), [draftData]);
+    const anglesSafe = useMemo(() => Array.isArray(draftData?.angles) ? draftData.angles : [], [draftData]);
 
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [newHoldName, setNewHoldName] = useState("");
@@ -160,6 +187,10 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
     const [zoomedImage, setZoomedImage] = useState(null);
     const [confirmState, setConfirmState] = useState(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [adminView, setAdminView] = useState(initialView === "history" ? "history" : "catalog");
+    const [historyRows, setHistoryRows] = useState([]);
+    const [historyStatus, setHistoryStatus] = useState("idle");
     const confirmResolverRef = useRef(null);
 
     const [adminHoldSearch, setAdminHoldSearch] = useState("");
@@ -199,16 +230,55 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         setDraftData((prev) => (typeof updater === "function" ? updater(prev) : updater));
     }, []);
 
-    const handleSave = useCallback(() => {
-        const ok = saveState(draftData);
-        if (!ok) {
-            // saveState already surfaced the reason; keep the unsaved flag so the user can retry.
-            return;
+    const refreshHistory = useCallback(() => {
+        setHistoryStatus("loading");
+        loadHistory(200)
+            .then((rows) => {
+                setHistoryRows(rows);
+                setHistoryStatus("ready");
+            })
+            .catch((err) => {
+                console.warn("History load failed:", err);
+                setHistoryStatus("error");
+            });
+    }, []);
+
+    useEffect(() => {
+        if (adminView === "history" && historyStatus === "idle") refreshHistory();
+    }, [adminView, historyStatus, refreshHistory]);
+
+    useEffect(() => {
+        if (initialView === "history") setAdminView("history");
+    }, [initialView]);
+
+    useEffect(() => {
+        if (adminView === "history") onHistoryViewed?.();
+    }, [adminView, onHistoryViewed]);
+
+    const handleSave = useCallback(async () => {
+        if (saving) return;
+        setSaving(true);
+        try {
+            const saved = await saveState(draftData, serverRevision);
+            setData(saved.data);
+            onCatalogSaved?.(saved);
+            setDraftData(saved.data);
+            setHasUnsavedChanges(false);
+            if (adminView === "history") refreshHistory();
+            toast.success("База сохранена");
+        } catch (err) {
+            console.warn("Shared save failed:", err);
+            if (err?.status === 409 || err?.code === "stale_revision") {
+                toast.error("База уже изменилась. Обновите страницу и повторите правку.", { duration: 7000 });
+            } else if (err?.status === 401) {
+                toast.error("Сессия истекла. Войдите снова.");
+            } else {
+                toast.error("Не удалось сохранить базу. Попробуйте снова.");
+            }
+        } finally {
+            setSaving(false);
         }
-        setData(draftData);
-        setHasUnsavedChanges(false);
-        toast.success("Changes saved");
-    }, [draftData, setData]);
+    }, [adminView, draftData, onCatalogSaved, refreshHistory, saving, serverRevision, setData]);
 
     const handleExit = useCallback(async () => {
         if (hasUnsavedChanges) {
@@ -217,12 +287,6 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         }
         onExit();
     }, [askConfirm, hasUnsavedChanges, onExit]);
-
-    // Session is a one-time token: consume it on mount so re-entering admin
-    // (back button, browser nav, reload) always requires logging in again.
-    useEffect(() => {
-        try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { }
-    }, []);
 
     useEffect(() => {
         if (!hasUnsavedChanges) setDraftData(data);
@@ -635,17 +699,29 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         }
 
         button, [role="button"], input, select, label, a, summary {
-          outline: none !important;
           -webkit-tap-highlight-color: transparent;
         }
-        button:focus, button:focus-visible,
-        [role="button"]:focus, [role="button"]:focus-visible,
-        input:focus, input:focus-visible,
-        input[type="checkbox"]:focus, input[type="checkbox"]:focus-visible,
-        select:focus, select:focus-visible,
-        label:focus, a:focus, a:focus-visible {
+        /* Suppress the focus ring for pointer interaction only — :focus without
+           :focus-visible is mouse/touch. Keyboard focus keeps a visible ring
+           below for accessibility. */
+        button:focus:not(:focus-visible),
+        [role="button"]:focus:not(:focus-visible),
+        input:focus:not(:focus-visible),
+        select:focus:not(:focus-visible),
+        label:focus:not(:focus-visible),
+        a:focus:not(:focus-visible),
+        summary:focus:not(:focus-visible) {
           outline: none !important;
           box-shadow: none !important;
+        }
+        button:focus-visible,
+        [role="button"]:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        a:focus-visible,
+        summary:focus-visible {
+          outline: 2px solid ${theme.colors.textPrimary} !important;
+          outline-offset: 2px !important;
         }
         button::-moz-focus-inner { border: 0; }
       `}</style>
@@ -697,6 +773,27 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                         <input ref={holdCoverInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleHoldCoverUpload} />
 
                         <div className="adminFooter" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", gap: 8 }}>
+                                <button
+                                    type="button"
+                                    style={{ ...styles.btnGhost, flex: 1, fontWeight: adminView === "catalog" ? 700 : 400 }}
+                                    onClick={() => setAdminView("catalog")}
+                                >
+                                    CATALOG
+                                </button>
+                                <button
+                                    type="button"
+                                    style={{ ...styles.btnGhost, flex: 1, fontWeight: adminView === "history" ? 700 : 400 }}
+                                    onClick={() => {
+                                        setAdminView("history");
+                                        onHistoryViewed?.();
+                                        if (historyStatus === "error") refreshHistory();
+                                    }}
+                                >
+                                    HISTORY
+                                </button>
+                            </div>
+
                             <div style={styles.footerRow}>
                                 <button style={styles.btnGhost} onClick={handleExit}>BACK</button>
                                 <input
@@ -711,17 +808,25 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
 
                             <button
                                 type="button"
-                                style={{ ...styles.btnGhost, width: "100%" }}
+                                style={{ ...styles.btnGhost, width: "100%", opacity: saving ? 0.65 : 1 }}
                                 onClick={handleSave}
+                                disabled={saving}
                                 title="Save all changes"
                             >
                                 <SaveIcon />
-                                SAVE{hasUnsavedChanges ? " *" : ""}
+                                {saving ? "SAVING…" : `SAVE${hasUnsavedChanges ? " *" : ""}`}
                             </button>
 
                             <div style={{ display: "flex", gap: 8 }}>
                                 <button style={{ ...styles.btnGhost, flex: 1 }} onClick={exportDb}>EXPORT</button>
                                 <button style={{ ...styles.btnGhost, flex: 1 }} onClick={triggerImportDb}>IMPORT</button>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                <span style={{ fontSize: 11, color: theme.colors.textTertiary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {currentUser ? `Вход: ${currentUser}` : ""}
+                                </span>
+                                <button type="button" style={styles.btnGhost} onClick={onLogout}>Выйти</button>
                             </div>
 
                             <div className="adminFooterMeta" style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.3 }}>
@@ -739,12 +844,69 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                     </div>
                 </Card>
 
-                {/* Hold panel */}
-                <Card style={styles.card}>
-                    <div style={styles.tableBody}>
-                        <div style={styles.tableTitleCenter}>HOLD</div>
+                {adminView === "history" ? (
+                    <Card style={{ ...styles.card, gridColumn: "2 / 5" }}>
+                        <div style={styles.tableBody}>
+                            <div style={{ ...styles.tableHeader, marginBottom: 12 }}>
+                                <div style={styles.tableTitleCenter}>ИСТОРИЯ ИЗМЕНЕНИЙ</div>
+                                <button
+                                    type="button"
+                                    style={{ ...styles.btnSmallGhost, position: "absolute", right: 0 }}
+                                    onClick={refreshHistory}
+                                    disabled={historyStatus === "loading"}
+                                >
+                                    {historyStatus === "loading" ? "Loading..." : "Refresh"}
+                                </button>
+                            </div>
 
-                        {selectedProduct ? (
+                            {historyStatus === "error" ? (
+                                <div style={{ fontSize: 12, color: theme.colors.textMuted, textAlign: "center", padding: 24 }}>
+                                    Не удалось загрузить историю.
+                                </div>
+                            ) : historyStatus === "loading" ? (
+                                <div style={{ fontSize: 12, color: theme.colors.textMuted, textAlign: "center", padding: 24 }}>
+                                    Loading...
+                                </div>
+                            ) : historyRows.length === 0 ? (
+                                <div style={{ fontSize: 12, color: theme.colors.textMuted, textAlign: "center", padding: 24 }}>
+                                    История пока пуста.
+                                </div>
+                            ) : (
+                                <div style={{ ...styles.table, gap: 6 }}>
+                                    {historyRows.map((row) => (
+                                        <div
+                                            key={row.id}
+                                            style={{
+                                                display: "grid",
+                                                gridTemplateColumns: "140px 110px 130px 1fr 150px",
+                                                gap: 10,
+                                                alignItems: "center",
+                                                border: `1px solid ${theme.colors.borderLight}`,
+                                                borderRadius: 4,
+                                                padding: "8px 10px",
+                                                fontSize: 12,
+                                                color: theme.colors.textSecondary,
+                                            }}
+                                        >
+                                            <span style={{ color: theme.colors.textTertiary }}>{formatHistoryDate(row.createdAt)}</span>
+                                            <span style={{ fontWeight: 600, color: theme.colors.textPrimary }}>{row.username || "—"}</span>
+                                            <span>{formatHistoryAction(row)}</span>
+                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.entity || "—"}</span>
+                                            <span style={{ color: theme.colors.textPrimary }}>{formatHistoryChange(row)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                ) : (
+                    <>
+                        {/* Hold panel */}
+                        <Card style={styles.card}>
+                            <div style={styles.tableBody}>
+                                <div style={styles.tableTitleCenter}>HOLD</div>
+
+                                {selectedProduct ? (
                             !editingHold ? (
                                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                     <div style={{ fontSize: 16, color: theme.colors.textPrimary, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -816,14 +978,14 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                                     </div>
                                 </div>
                             )
-                        ) : (
-                            <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Select a Hold</div>
-                        )}
-                    </div>
-                </Card>
+                                ) : (
+                                    <div style={{ fontSize: 12, color: theme.colors.textMuted }}>Select a Hold</div>
+                                )}
+                            </div>
+                        </Card>
 
-                {/* MAIN */}
-                <Card style={styles.card}>
+                        {/* MAIN */}
+                        <Card style={styles.card}>
                     <div style={styles.tableBody}>
                         <div style={styles.tableTitleCenter}>MAIN</div>
                         <div style={styles.table}>
@@ -854,10 +1016,10 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                             )}
                         </div>
                     </div>
-                </Card>
+                        </Card>
 
-                {/* STEFAN */}
-                <Card style={styles.card}>
+                        {/* STEFAN */}
+                        <Card style={styles.card}>
                     <div style={styles.tableBody}>
                         <div style={styles.tableTitleCenter}>STEFAN</div>
                         <div style={styles.table}>
@@ -888,7 +1050,9 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                             )}
                         </div>
                     </div>
-                </Card>
+                        </Card>
+                    </>
+                )}
             </div>
 
             {zoomedImage && (

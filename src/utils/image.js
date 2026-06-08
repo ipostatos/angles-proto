@@ -85,20 +85,24 @@ export function printImage(src) {
         return;
     }
 
-    doc.open();
-    doc.write(`<!DOCTYPE html><html><head><title>Drawing</title><style>
+    // Build the print document via DOM APIs (no document.write / HTML strings),
+    // so the user-controlled image URL is only ever set through img.src.
+    const style = doc.createElement("style");
+    style.textContent = `
       @page { margin: 12mm; }
       html, body { margin: 0; padding: 0; height: 100%; }
       body { display: flex; align-items: center; justify-content: center; }
       img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    </style></head><body><img id="print-drawing" alt="drawing" /></body></html>`);
-    doc.close();
+    `;
+    doc.head.appendChild(style);
 
-    const img = doc.getElementById("print-drawing");
-    if (!img) {
-        cleanup();
-        return;
-    }
+    const title = doc.createElement("title");
+    title.textContent = "Drawing";
+    doc.head.appendChild(title);
+
+    const img = doc.createElement("img");
+    img.alt = "drawing";
+    doc.body.appendChild(img);
 
     let printed = false;
     const doPrint = () => {

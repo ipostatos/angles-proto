@@ -1,16 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { clamp, toAngleLabel } from './domain/angles.js';
-import { normalizeHoldName as normalizeHoldNameSafe, sanitizeHoldList } from './domain/holds.js';
-import { isSafeRasterDataUrl, isStrongAdminPassword, WEAK_PINS } from './domain/validation.js';
-import { migrateAndSanitize, unwrapImportedDb, LS_VERSION, DEFAULT_HOLDS, getSortedHoldNames, findHoldById, findHoldByName } from './domain/migration.js';
-import { loadState, saveState, loadLastModified, touchLastModified, getAndResetDidRecover, LS_KEY, MAX_DB_SIZE_KB } from './storage/db.js';
-import { pushBackup, LS_BACKUPS_KEY } from './storage/backups.js';
-import { hasAdminSession, sha256Hex, ADMIN_HASH_KEY, ADMIN_SESSION_KEY, ADMIN_REMEMBER_KEY } from './storage/auth.js';
+import { getSortedHoldNames, findHoldById } from './domain/migration.js';
+import { loadState, loadLastModified, getAndResetDidRecover } from './storage/db.js';
+import { getSession, login as apiLogin, logout as apiLogout } from './storage/auth.js';
 import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS_KEY } from './storage/workProgress.js';
-import { downloadJsonFile, readJsonFile, serializedSizeKB } from './storage/importExport.js';
-import { compressImageFile, printImage } from './utils/image.js';
-import { SearchIcon, PrinterIcon, SaveIcon, ZoomIcon, PhoneIcon, SortIcon } from './components/icons.jsx';
+import { printImage } from './utils/image.js';
+import { SearchIcon, PrinterIcon, ZoomIcon, PhoneIcon, SortIcon } from './components/icons.jsx';
 import { Card } from './components/Card.jsx';
 import { ConfirmDialog } from './components/ConfirmDialog.jsx';
 import { PasswordInput } from './components/PasswordInput.jsx';
@@ -39,6 +34,23 @@ import { theme, getStyles } from './styles/theme.js';
  */
 
 const APP_VERSION = "1.01";
+const LS_LAST_SEEN_CHANGE_KEY = "angles_proto_v1_last_seen_change_id";
+
+function loadLastSeenChangeId() {
+    try {
+        const raw = localStorage.getItem(LS_LAST_SEEN_CHANGE_KEY);
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : 0;
+    } catch {
+        return 0;
+    }
+}
+
+function saveLastSeenChangeId(id) {
+    const n = Number(id);
+    if (!Number.isFinite(n)) return;
+    try { localStorage.setItem(LS_LAST_SEEN_CHANGE_KEY, String(n)); } catch {}
+}
 
 
 function cryptoRandomId() {
@@ -57,19 +69,6 @@ const DEFAULT_ANGLES = [
     { id: cryptoRandomId(), hold: "Amon", value: 50.0, saw: "stefan" },
 ];
 
-/* -------------------- tiny debounce hook (P0) -------------------- */
-function useDebounce(value, delay) {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(t);
-    }, [value, delay]);
-    return debounced;
-}
-
-/* -------------------- STORAGE: migration + sanitize -------------------- */
-
-
 function useHashRoute() {
     const [hash, setHash] = useState(() => window.location.hash || "#/");
     useEffect(() => {
@@ -85,7 +84,14 @@ function useHashRoute() {
 
 export default function App() {
     const route = useHashRoute();
-    const [data, setData] = useState(() => loadState());
+    // Phase 2B: catalog is loaded async from GET /api/state. Start with an empty
+    // safe catalog so the data-derived hooks below never see null; a loading/error
+    // overlay gates rendering until the fetch resolves.
+    const [data, setData] = useState(() => ({ version: 2, holds: [], angles: [] }));
+    // Server revision used by AdminPage SAVE for optimistic locking.
+    const [serverRevision, setServerRevision] = useState(null);
+    // "loading" → "ready" | "error"
+    const [loadStatus, setLoadStatus] = useState("loading");
     const [selectedHolds, setSelectedHolds] = useState(() => new Set());
     const [activeAngleId, setActiveAngleId] = useState(null);
     const [checkedAngles, setCheckedAngles] = useState(() => new Set());
@@ -111,18 +117,23 @@ export default function App() {
     const [holdSearch, setHoldSearch] = useState("");
     const searchRef = useRef(null);
 
-    // admin login modal (appears over the main page, no navigation)
+    // Phase 2C: server-backed auth. currentUser comes from GET /api/session;
+    // null = public viewer. sessionLoading gates only the admin entry, never the
+    // public catalog (which renders as soon as the catalog load resolves).
+    const [currentUser, setCurrentUser] = useState(null);
+    const [latestChange, setLatestChange] = useState(null);
+    const [sessionLoading, setSessionLoading] = useState(true);
+    const [showDbChanged, setShowDbChanged] = useState(false);
+    const [adminInitialView, setAdminInitialView] = useState("catalog");
+
+    // username/password login modal (appears over the main page, no navigation)
     const [showLogin, setShowLogin] = useState(false);
-    const [loginUser, setLoginUser] = useState("admin");
+    const [loginUser, setLoginUser] = useState("");
     const [loginPass, setLoginPass] = useState("");
     const [loginShake, setLoginShake] = useState(false);
-    const [loginMode, setLoginMode] = useState("login"); // "login" | "setup"
     const [loginError, setLoginError] = useState("");
+    const [loginLoading, setLoginLoading] = useState(false);
     const [showPass, setShowPass] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
-    // Keeps admin mounted after one-time session token is consumed on AdminPage mount
-    const [adminAuthed, setAdminAuthed] = useState(false);
-    const prevRouteRef = useRef(null);
 
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [workMode, setWorkMode] = useState(false);
@@ -135,110 +146,133 @@ export default function App() {
     });
 
     const openAdmin = useCallback(() => {
-        if (hasAdminSession()) {
+        if (currentUser) {
             window.location.hash = "#/admin";
         } else {
+            setLoginUser("");
             setLoginPass("");
             setLoginError("");
-            let storedHash = null;
-            try { storedHash = localStorage.getItem(ADMIN_HASH_KEY); } catch { }
-            setLoginMode(storedHash ? "login" : "setup");
             setShowLogin(true);
         }
+    }, [currentUser]);
+
+    // Phase 2C: who am I? Resolved once on mount from the session cookie. Runs
+    // independently of the catalog load and must NOT gate the public page.
+    useEffect(() => {
+        let cancelled = false;
+        getSession()
+            .then(({ username, latestChange }) => {
+                if (cancelled) return;
+                setCurrentUser(username ?? null);
+                setLatestChange(latestChange ?? null);
+            })
+            .catch((err) => {
+                if (cancelled) return;
+                console.warn("Session check failed:", err);
+                setCurrentUser(null);
+                setLatestChange(null);
+            })
+            .finally(() => { if (!cancelled) setSessionLoading(false); });
+        return () => { cancelled = true; };
     }, []);
 
-    // Route guards: require login when entering /admin; clear auth when leaving (browser Back, etc.)
+    const markLatestChangeSeen = useCallback(() => {
+        const id = Number(latestChange?.id);
+        if (Number.isFinite(id)) saveLastSeenChangeId(id);
+        setShowDbChanged(false);
+    }, [latestChange]);
+
     useEffect(() => {
-        const prev = prevRouteRef.current;
-        prevRouteRef.current = route;
-
-        if (prev === "/admin" && route !== "/admin") {
-            setAdminAuthed(false);
-            setShowLogin(false);
-            try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { }
+        if (!currentUser || !latestChange) {
+            setShowDbChanged(false);
+            return;
         }
+        const id = Number(latestChange.id);
+        if (!Number.isFinite(id)) return;
+        if (latestChange.username === currentUser) {
+            saveLastSeenChangeId(id);
+            setShowDbChanged(false);
+            return;
+        }
+        setShowDbChanged(id > loadLastSeenChangeId());
+    }, [currentUser, latestChange]);
 
-        if (route === "/admin" && prev !== "/admin" && !adminAuthed && !hasAdminSession()) {
+    // Admin gate: a visitor on /admin without a session is bounced home and shown
+    // the login form. We wait for the session check so a logged-in user reloading
+    // straight onto /admin is never locked out before we know who they are.
+    useEffect(() => {
+        if (sessionLoading) return;
+        if (route === "/admin" && !currentUser) {
+            setLoginUser("");
             setLoginPass("");
+            setLoginError("");
             setShowLogin(true);
             if (window.location.hash !== "#/" && window.location.hash !== "#") {
                 window.location.hash = "#/";
             }
         }
-    }, [route, adminAuthed]);
+    }, [route, currentUser, sessionLoading]);
 
     const submitLogin = useCallback(async () => {
-        if (!globalThis.crypto?.subtle) {
-            toast.error("Secure login unavailable here. Open the app over https or localhost.");
-            return;
-        }
-
-        let storedHash = null;
-        try { storedHash = localStorage.getItem(ADMIN_HASH_KEY); } catch { }
-
-        const finish = () => {
-            try { sessionStorage.setItem(ADMIN_SESSION_KEY, "1"); } catch { }
-            if (rememberMe) {
-                try { localStorage.setItem(ADMIN_REMEMBER_KEY, "1"); } catch { }
-            } else {
-                try { localStorage.removeItem(ADMIN_REMEMBER_KEY); } catch { }
-            }
-            setAdminAuthed(true);
-            setShowLogin(false);
-            setLoginPass("");
-            setShowPass(false);
-            window.location.hash = "#/admin";
-        };
-
+        const username = loginUser.trim();
+        const password = loginPass;
         const shake = (msg = "") => {
             setLoginError(msg);
             setLoginShake(true);
             setLoginPass("");
             setTimeout(() => setLoginShake(false), 600);
         };
-
+        if (!username || !password) {
+            shake("Введите логин и пароль");
+            return;
+        }
+        setLoginLoading(true);
+        setLoginError("");
         try {
-            if (!storedHash) {
-                if (!isStrongAdminPassword(loginPass)) {
-                    shake("4 digits, not all the same");
-                    return;
-                }
-                try {
-                    localStorage.setItem(ADMIN_HASH_KEY, await sha256Hex(loginPass));
-                } catch {
-                    shake("Не удалось сохранить пароль");
-                    return;
-                }
-                finish();
-                return;
-            }
-
-            const hash = await sha256Hex(loginPass);
-            if (loginUser === "admin" && hash === storedHash) {
-                setLoginError("");
-                finish();
-            } else {
-                shake();
-            }
+            // Credentials are verified ONLY by the server (/api/login); the
+            // frontend never checks the password itself.
+            const { username: who } = await apiLogin(username, password);
+            setCurrentUser(who ?? username);
+            setLatestChange(null);
+            setShowLogin(false);
+            setLoginPass("");
+            setShowPass(false);
+            window.location.hash = "#/admin";
         } catch (err) {
             console.warn("Login failed:", err);
-            shake();
+            shake(err?.status === 401 ? "Неверный логин или пароль" : "Ошибка входа. Попробуйте снова.");
+        } finally {
+            setLoginLoading(false);
         }
     }, [loginUser, loginPass]);
 
-    // P0: debounce localStorage writes. Skip the first run so we don't immediately
-    // re-write storage on mount (loadState already persisted sanitized data, and this
-    // preserves any corrupt payload backed up for recovery).
-    const debouncedData = useDebounce(data, 500);
-    const skipFirstSaveRef = useRef(true);
-    useEffect(() => {
-        if (skipFirstSaveRef.current) {
-            skipFirstSaveRef.current = false;
-            return;
-        }
-        saveState(debouncedData);
-        setLastModifiedMs(loadLastModified());
-    }, [debouncedData]);
+    const handleLogout = useCallback(async () => {
+        // Best-effort: clear server cookie, then lock the UI regardless.
+        try { await apiLogout(); }
+        catch (err) { console.warn("Logout request failed:", err); }
+        setCurrentUser(null);
+        setLatestChange(null);
+        setShowLogin(false);
+        window.location.hash = "#/";
+    }, []);
+
+    // Phase 2B: load the shared catalog from GET /api/state. On failure we show a
+    // no-connection state (online-only — no localStorage fallback).
+    const loadCatalog = useCallback(() => {
+        setLoadStatus("loading");
+        loadState()
+            .then(({ data: serverData, revision }) => {
+                setData(serverData);
+                setServerRevision(revision);
+                setLoadStatus("ready");
+            })
+            .catch((err) => {
+                console.warn("Failed to load catalog from /api/state:", err);
+                setLoadStatus("error");
+            });
+    }, []);
+
+    useEffect(() => { loadCatalog(); }, [loadCatalog]);
 
     // Surface a one-time warning if stored data was unreadable and we recovered.
     useEffect(() => {
@@ -282,7 +316,7 @@ export default function App() {
         }
 
         return { main, stefan };
-    }, [data.angles, selectedHolds, mainSort, stefanSort]);
+    }, [data.angles, data.holds, selectedHolds, mainSort, stefanSort]);
 
     const activeAngle = useMemo(
         () => data.angles.find((a) => a.id === activeAngleId) || null,
@@ -399,15 +433,47 @@ export default function App() {
 
     const styles = useMemo(() => getStyles(theme), []);
 
-    if (route === "/admin" && (adminAuthed || hasAdminSession())) {
+    if (loadStatus === "loading") {
+        return (
+            <div style={styles.page} className="app-page">
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: theme.colors.textMuted, fontSize: 14 }}>
+                    Loading…
+                </div>
+            </div>
+        );
+    }
+
+    if (loadStatus === "error") {
+        return (
+            <div style={styles.page} className="app-page">
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", gap: 12, alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center" }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: theme.colors.textPrimary }}>Нет связи с сервером</div>
+                    <div style={{ fontSize: 12, color: theme.colors.textMuted, maxWidth: 280, lineHeight: 1.5 }}>
+                        Не удалось загрузить базу. Проверьте подключение и попробуйте снова.
+                    </div>
+                    <button type="button" style={styles.btnPrimary} onClick={loadCatalog}>Повторить</button>
+                </div>
+            </div>
+        );
+    }
+
+    if (route === "/admin" && currentUser) {
         return (
             <AdminPage
                 data={data}
                 setData={setData}
+                serverRevision={serverRevision}
+                onCatalogSaved={({ data: savedData, revision }) => {
+                    setData(savedData);
+                    setServerRevision(revision);
+                    setLastModifiedMs(loadLastModified());
+                }}
+                initialView={adminInitialView}
+                onHistoryViewed={markLatestChangeSeen}
+                currentUser={currentUser}
+                onLogout={handleLogout}
                 onExit={() => {
                     setShowLogin(false);
-                    setAdminAuthed(false);
-                    try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { }
                     window.location.hash = "#/";
                 }}
                 lastModifiedMs={lastModifiedMs}
@@ -863,17 +929,29 @@ export default function App() {
         }
         
         button, [role="button"], input, select, label, a, summary {
-          outline: none !important;
           -webkit-tap-highlight-color: transparent;
         }
-        button:focus, button:focus-visible,
-        [role="button"]:focus, [role="button"]:focus-visible,
-        input:focus, input:focus-visible,
-        input[type="checkbox"]:focus, input[type="checkbox"]:focus-visible,
-        select:focus, select:focus-visible,
-        label:focus, a:focus, a:focus-visible {
+        /* Suppress the focus ring for pointer interaction only — :focus without
+           :focus-visible is mouse/touch. Keyboard focus keeps a visible ring
+           below for accessibility. */
+        button:focus:not(:focus-visible),
+        [role="button"]:focus:not(:focus-visible),
+        input:focus:not(:focus-visible),
+        select:focus:not(:focus-visible),
+        label:focus:not(:focus-visible),
+        a:focus:not(:focus-visible),
+        summary:focus:not(:focus-visible) {
           outline: none !important;
           box-shadow: none !important;
+        }
+        button:focus-visible,
+        [role="button"]:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        a:focus-visible,
+        summary:focus-visible {
+          outline: 2px solid ${theme.colors.textPrimary} !important;
+          outline-offset: 2px !important;
         }
         button::-moz-focus-inner { border: 0; }
       `}</style>
@@ -1182,6 +1260,55 @@ export default function App() {
                 </div>
             )}
 
+            {showDbChanged && latestChange && (
+                <div
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        background: "rgba(0,0,0,0.32)",
+                        backdropFilter: "blur(3px)",
+                        WebkitBackdropFilter: "blur(3px)",
+                        zIndex: 9998,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 20,
+                    }}
+                >
+                    <div
+                        style={{
+                            width: "100%",
+                            maxWidth: 320,
+                            background: theme.colors.cardBg,
+                            border: `1px solid ${theme.colors.border}`,
+                            borderRadius: 8,
+                            padding: 24,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            boxSizing: "border-box",
+                            textAlign: "center",
+                        }}
+                    >
+                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>БАЗА ИЗМЕНЕНА</div>
+                        <div style={{ fontSize: 13, color: theme.colors.textPrimary, lineHeight: 1.5 }}>
+                            {latestChange.username || "Кто-то"} изменил базу
+                        </div>
+                        <button
+                            type="button"
+                            style={{ ...styles.btnPrimary, alignSelf: "center", minWidth: 80 }}
+                            onClick={() => {
+                                markLatestChangeSeen();
+                                setAdminInitialView("history");
+                                window.location.hash = "#/admin";
+                            }}
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Admin login modal (over the page, no navigation) */}
             {showLogin && (
                 <div
@@ -1251,55 +1378,33 @@ export default function App() {
                             boxSizing: "border-box",
                         }}
                     >
-                        {loginMode === "setup" ? (
-                            <>
-                                <div style={{ textAlign: "center" }}>
-                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={theme.colors.textPrimary} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 8 }}>
-                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                    </svg>
-                                    <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>FIRST LOGIN</div>
-                                    <div style={{ fontSize: 12, color: theme.colors.textSecondary, lineHeight: 1.5 }}>
-                                        Create a 4-digit admin PIN.
-                                    </div>
-                                </div>
-                                <PasswordInput value={loginPass} onChange={(v) => { if (/^\d{0,4}$/.test(v)) setLoginPass(v); }} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="PIN" styles={styles} inputMode="numeric" maxLength={4} />
-                                {loginError && (
-                                    <div style={{ fontSize: 11, color: "#e53e3e", textAlign: "center", marginTop: -4 }}>
-                                        {loginError}
-                                    </div>
-                                )}
-                                <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4 }}>
-                                    <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>SET</button>
-                                    <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>CANCEL</button>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ADMIN</div>
-                                <input
-                                    value={loginUser}
-                                    onChange={(e) => setLoginUser(e.target.value)}
-                                    placeholder="LOGIN"
-                                    className="login-modal-input"
-                                    style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
-                                />
-                                <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="Password" styles={styles} autoFocus />
-                                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", justifyContent: "center" }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={rememberMe}
-                                        onChange={(e) => setRememberMe(e.target.checked)}
-                                        style={{ width: 14, height: 14, cursor: "pointer", accentColor: theme.colors.textPrimary }}
-                                    />
-                                    <span style={{ fontSize: 12, color: theme.colors.textSecondary }}>Remember me</span>
-                                </label>
-                                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                    <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>OK</button>
-                                    <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>CANCEL</button>
-                                </div>
-                            </>
+                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ВХОД</div>
+                        <input
+                            value={loginUser}
+                            onChange={(e) => setLoginUser(e.target.value)}
+                            placeholder="Логин"
+                            className="login-modal-input"
+                            autoFocus
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
+                        />
+                        <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="Пароль" styles={styles} />
+                        <div style={{ fontSize: 11, color: theme.colors.textTertiary, textAlign: "center" }}>
+                            Tomek · Alessandro · Artsi
+                        </div>
+                        {loginError && (
+                            <div style={{ fontSize: 11, color: "#e53e3e", textAlign: "center", marginTop: -4 }}>
+                                {loginError}
+                            </div>
                         )}
+                        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                            <button type="button" style={{ ...styles.btnPrimary, minWidth: 60, opacity: loginLoading ? 0.6 : 1 }} onClick={submitLogin} disabled={loginLoading}>
+                                {loginLoading ? "…" : "Войти"}
+                            </button>
+                            <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>Отмена</button>
+                        </div>
                     </div>
                 </div>
             )}

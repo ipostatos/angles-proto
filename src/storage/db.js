@@ -1,6 +1,4 @@
-import toast from 'react-hot-toast';
-import { migrateAndSanitize, DEFAULT_HOLDS, DEFAULT_ANGLES, LS_VERSION } from '../domain/migration.js';
-import { migrateV1toV2, detectVersion } from '../domain/migration.js';
+import { migrateAndSanitize } from '../domain/migration.js';
 
 export const LS_KEY = 'angles_proto_v1';
 export const LS_LAST_MODIFIED_KEY = 'angles_proto_v1_lastModified';
@@ -38,72 +36,90 @@ export function loadLastModified() {
     }
 }
 
-export function loadState() {
+/**
+ * Phase 2B: the catalog is now read from the shared backend.
+ * loadState() is async and fetches GET /api/state, returning { data, revision }.
+ * It does NOT fall back to localStorage — the app is online-only (no existing
+ * offline fallback strategy), so callers must handle a rejection by showing a
+ * no-connection state. Server data is re-sanitized defensively on the client.
+ */
+export async function loadState() {
+    let res;
     try {
-        const raw = localStorage.getItem(LS_KEY);
-        if (!raw) {
-            const v1init = {
-                version: 1,
-                holds: DEFAULT_HOLDS,
-                angles: DEFAULT_ANGLES,
-                holdImages: {},
-            };
-            const init = migrateAndSanitize(migrateV1toV2(v1init));
-            localStorage.setItem(LS_KEY, JSON.stringify(init));
-            localStorage.setItem(LS_LAST_MODIFIED_KEY, String(Date.now()));
-            return init;
-        }
-
-        const parsed = JSON.parse(raw);
-
-        // Upgrade v1 → v2 if needed
-        const upgraded = detectVersion(parsed) < 2 ? migrateV1toV2(parsed) : parsed;
-
-        const next = migrateAndSanitize(upgraded);
-
-        localStorage.setItem(LS_KEY, JSON.stringify(next));
-        ensureLastModifiedExists();
-        return next;
-    } catch {
-        // Data is unreadable. Preserve the original bytes for recovery instead of
-        // silently overwriting them, and DON'T touch LS_KEY here so the user can
-        // still export/inspect the corrupt payload. Keep only the newest copy.
-        try {
-            const raw = localStorage.getItem(LS_KEY);
-            if (raw) {
-                for (let i = localStorage.length - 1; i >= 0; i--) {
-                    const k = localStorage.key(i);
-                    if (k && k.startsWith(`${LS_CORRUPT_KEY}_`)) localStorage.removeItem(k);
-                }
-                localStorage.setItem(`${LS_CORRUPT_KEY}_${Date.now()}`, raw);
-            }
-        } catch { }
-        didRecoverFromCorrupt = true;
-        return migrateAndSanitize({
-            version: LS_VERSION,
-            holds: DEFAULT_HOLDS,
-            angles: DEFAULT_ANGLES,
-            holdImages: {},
-        });
+        res = await fetch('/api/state', { headers: { accept: 'application/json' } });
+    } catch (err) {
+        throw new Error('Failed to reach /api/state', { cause: err });
     }
+    if (!res.ok) {
+        throw new Error(`/api/state responded with status ${res.status}`);
+    }
+    let body;
+    try {
+        body = await res.json();
+    } catch (err) {
+        throw new Error('Invalid /api/state response (not JSON)', { cause: err });
+    }
+    if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object') {
+        throw new Error('Invalid /api/state response shape');
+    }
+    const data = migrateAndSanitize(body.data);
+    const revisionNum = Number(body.revision);
+    return { data, revision: Number.isFinite(revisionNum) ? revisionNum : null };
 }
 
-export function saveState(next) {
-    try {
-        const safe = migrateAndSanitize(next);
-        localStorage.setItem(LS_KEY, JSON.stringify(safe));
-        touchLastModified();
-        return true;
-    } catch (err) {
-        if (err?.name === 'QuotaExceededError' || err?.code === 22) {
-            console.warn('Storage full: image not saved. Use smaller images or remove some drawings.');
-            toast.error('Storage full. Remove some drawings or upload smaller images.');
-        } else {
-            console.warn('Save failed:', err);
-            toast.error('Could not save. Changes may be lost.');
-        }
-        return false;
+/**
+ * Phase 2D: authenticated shared-catalog save.
+ * Sends the full sanitized catalog with the revision it was based on. The
+ * server enforces optimistic locking and returns 409 when another user saved
+ * first. Callers decide how to surface stale_revision to the user.
+ */
+export async function saveState(next, revision) {
+    if (typeof revision !== 'number' || !Number.isFinite(revision)) {
+        const err = new Error('Cannot save before a server revision is loaded');
+        err.status = 400;
+        err.code = 'missing_revision';
+        throw err;
     }
+
+    const safe = migrateAndSanitize(next);
+    let res;
+    try {
+        res = await fetch('/api/state', {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ data: safe, revision }),
+        });
+    } catch (err) {
+        throw new Error('Failed to reach /api/state', { cause: err });
+    }
+
+    let body = null;
+    try {
+        body = await res.json();
+    } catch {
+        body = null;
+    }
+
+    if (!res.ok) {
+        const err = new Error(body?.message || `/api/state responded with status ${res.status}`);
+        err.status = res.status;
+        err.body = body;
+        err.code = body?.error;
+        err.currentRevision = Number.isFinite(Number(body?.currentRevision)) ? Number(body.currentRevision) : null;
+        throw err;
+    }
+
+    if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object') {
+        throw new Error('Invalid /api/state save response shape');
+    }
+    const nextRevision = Number(body.revision);
+    touchLastModified();
+    return {
+        data: migrateAndSanitize(body.data),
+        revision: Number.isFinite(nextRevision) ? nextRevision : revision,
+        changes: Number.isFinite(Number(body.changes)) ? Number(body.changes) : null,
+    };
 }
 
 export function serializedSizeKB(obj) {

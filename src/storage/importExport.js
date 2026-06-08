@@ -1,5 +1,3 @@
-import { migrateAndSanitize } from '../domain/migration.js';
-
 export const MAX_DB_SIZE_KB = 4500;
 
 export function downloadJsonFile(obj, filename = 'angles-db.json') {
