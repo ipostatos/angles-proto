@@ -661,7 +661,15 @@ export default function App() {
             overflow: visible !important;
             padding: 0 !important; /* Remove card padding from App.css to use cardBody padding */
           }
-          
+
+          /* MAIN/STEFAN tables: narrower and centered on mobile, not full-bleed */
+          .main-grid > .angleTableCard {
+            width: 100% !important;
+            max-width: 360px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+          }
+
           .holdsList {
              max-height: 30vh !important;
           }
@@ -946,20 +954,18 @@ export default function App() {
         }
         button:focus-visible,
         [role="button"]:focus-visible,
-        input:focus-visible,
-        select:focus-visible,
         a:focus-visible,
         summary:focus-visible {
           outline: 2px solid ${theme.colors.textPrimary} !important;
           outline-offset: 2px !important;
         }
-        /* Search field: show focus on the pill, not as a hard ring on the bare input. */
-        .searchPill input:focus-visible {
+        /* No focus ring on text fields / search inputs. */
+        input:focus,
+        input:focus-visible,
+        select:focus,
+        select:focus-visible {
           outline: none !important;
-        }
-        .searchPill:focus-within {
-          border-color: ${theme.colors.textSecondary} !important;
-          box-shadow: 0 0 0 1px ${theme.colors.textSecondary} !important;
+          box-shadow: none !important;
         }
         button::-moz-focus-inner { border: 0; }
       `}</style>
@@ -1098,7 +1104,7 @@ export default function App() {
                 </Card>
 
                 {/* Main table */}
-                <Card style={styles.card}>
+                <Card style={styles.card} className="angleTableCard">
                     <div style={styles.tableBody}>
                         <div style={styles.tableHeader} className="print-header tableHeader">
                             <div style={styles.tableTitleCenter} className="tableTitleCenter">MAIN</div>
@@ -1120,7 +1126,7 @@ export default function App() {
                 </Card>
 
                 {/* Stefan table */}
-                <Card style={styles.card}>
+                <Card style={styles.card} className="angleTableCard">
                     <div style={styles.tableBody}>
                         <div style={styles.tableHeader} className="print-header tableHeader">
                             <div style={styles.tableTitleCenter} className="tableTitleCenter">STEFAN</div>
