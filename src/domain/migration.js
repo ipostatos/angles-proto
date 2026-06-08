@@ -152,12 +152,16 @@ export function unwrapImportedDb(parsed) {
 }
 
 export function migrateAndSanitize(parsed) {
-    // If already v2, validate and return as-is (with basic sanitization)
-    if (detectVersion(parsed) === 2) {
-        return sanitizeV2(parsed);
-    }
-
+    // Unwrap an export wrapper ({ app, exportedAt, version, data }) before
+    // anything else: the wrapper carries its own top-level `version`, so a v2
+    // export would otherwise be detected as v2 and sanitized against the
+    // wrapper (which has no holds/angles), yielding an empty catalog.
     const unwrapped = unwrapImportedDb(parsed);
+
+    // If already v2, validate and return as-is (with basic sanitization)
+    if (detectVersion(unwrapped) === 2) {
+        return sanitizeV2(unwrapped);
+    }
 
     const holds = sanitizeHoldList(unwrapped?.holds ?? DEFAULT_HOLDS);
     const holdsSet = new Set(holds);

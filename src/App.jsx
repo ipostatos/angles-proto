@@ -33,7 +33,7 @@ import { theme, getStyles } from './styles/theme.js';
  * - Admin: SHA-256 hash stored in localStorage (no hardcoded password after first login)
  */
 
-const APP_VERSION = "1.01";
+const APP_VERSION = "1.5";
 const LS_LAST_SEEN_CHANGE_KEY = "angles_proto_v1_last_seen_change_id";
 
 function loadLastSeenChangeId() {
