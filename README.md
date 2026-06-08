@@ -76,11 +76,11 @@ SESSION_SECRET=long-random-secret
 Build and tests:
 
 ```bash
+npm run lint
 npm test
 npm run build
+npm run audit
 ```
-
-`npm run lint` currently requires adding ESLint packages to `devDependencies`; the script exists but the binary is not installed in this workspace.
 
 ---
 
@@ -117,7 +117,7 @@ Security headers are configured in [`vercel.json`](vercel.json): CSP, HSTS, `X-F
 Known limitations:
 
 - Seeded password = username is accepted internal debt for the workshop context.
-- `/api/login` has no rate limiting yet.
+- `/api/login` has best-effort in-memory rate limiting; production-grade distributed throttling still needs shared storage.
 - Public catalog read is intentional; admin writes and history require a valid session.
 - Secrets stay server-side only (`DATABASE_URL`, `SESSION_SECRET`).
 
