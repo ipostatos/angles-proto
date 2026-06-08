@@ -21,6 +21,7 @@
 | D11 | No CI/CD security gates | SEV-LOW | M | SDLC | OPEN |
 | D12 | Global `outline:none` removes focus visibility | SEV-LOW | S | A11y | OPEN |
 | D13 | `printImage` uses `document.write` into iframe | SEV-LOW | S | Hardening | OPEN (info) |
+| D14 | No documented DB backup/restore procedure | SEV-MEDIUM | S | Operations | **DONE** — `docs/OPERATIONS.md` |
 | R1 | DB dumps in git history | SEV-HIGH (was) | — | Data exposure | **RESOLVED** (monitor residual public clones/caches) |
 
 Effort: S <= 1h, M <= half-day, L > 1 day.

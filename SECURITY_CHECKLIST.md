@@ -93,7 +93,7 @@
 - [✅] Single-row `app_state` constraint
 - [✅] Revision compare-and-set on writes
 - [✅] Change log index on `created_at DESC`
-- [⚠️] No documented automated DB backup/restore procedure in repo
+- [✅] DB backup/restore procedure documented (`docs/OPERATIONS.md`)
 
 ## 11. Deployment / Infrastructure
 
@@ -137,7 +137,7 @@
 - [x] Seeded weak passwords are replaced or explicitly opt-in only
 - [x] Login rate limiting exists
 - [x] CI/security checks are configured
-- [ ] Operational DB backup/restore process is documented
+- [x] Operational DB backup/restore process is documented (`docs/OPERATIONS.md`)
 
 ---
 
