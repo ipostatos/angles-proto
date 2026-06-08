@@ -85,7 +85,15 @@ function useHashRoute() {
 
 export default function App() {
     const route = useHashRoute();
-    const [data, setData] = useState(() => loadState());
+    // Phase 2B: catalog is loaded async from GET /api/state. Start with an empty
+    // safe catalog so the data-derived hooks below never see null; a loading/error
+    // overlay gates rendering until the fetch resolves.
+    const [data, setData] = useState(() => ({ version: 2, holds: [], angles: [] }));
+    // Server revision — tracked now so Phase 2C/2D server-save wiring is trivial.
+    // Not used for saving in this phase.
+    const [serverRevision, setServerRevision] = useState(null);
+    // "loading" → "ready" | "error"
+    const [loadStatus, setLoadStatus] = useState("loading");
     const [selectedHolds, setSelectedHolds] = useState(() => new Set());
     const [activeAngleId, setActiveAngleId] = useState(null);
     const [checkedAngles, setCheckedAngles] = useState(() => new Set());
@@ -226,9 +234,30 @@ export default function App() {
         }
     }, [loginUser, loginPass]);
 
+    // Phase 2B: load the shared catalog from GET /api/state. On failure we show a
+    // no-connection state (online-only — no localStorage fallback).
+    const loadCatalog = useCallback(() => {
+        setLoadStatus("loading");
+        loadState()
+            .then(({ data: serverData, revision }) => {
+                setData(serverData);
+                setServerRevision(revision);
+                setLoadStatus("ready");
+            })
+            .catch((err) => {
+                console.warn("Failed to load catalog from /api/state:", err);
+                setLoadStatus("error");
+            });
+    }, []);
+
+    useEffect(() => { loadCatalog(); }, [loadCatalog]);
+
     // P0: debounce localStorage writes. Skip the first run so we don't immediately
-    // re-write storage on mount (loadState already persisted sanitized data, and this
-    // preserves any corrupt payload backed up for recovery).
+    // re-write storage on mount.
+    // TRANSITIONAL (Phase 2B): saveState still writes to localStorage only — server
+    // save (PUT /api/state with serverRevision) is wired in Phase 2C/2D. Admin edits
+    // made now are therefore NOT shared and are dropped on the next load (which comes
+    // from the server). This is an intentional intermediate-phase limitation.
     const debouncedData = useDebounce(data, 500);
     const skipFirstSaveRef = useRef(true);
     useEffect(() => {
@@ -398,6 +427,30 @@ export default function App() {
     }, []);
 
     const styles = useMemo(() => getStyles(theme), []);
+
+    if (loadStatus === "loading") {
+        return (
+            <div style={styles.page} className="app-page">
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: theme.colors.textMuted, fontSize: 14 }}>
+                    Loading…
+                </div>
+            </div>
+        );
+    }
+
+    if (loadStatus === "error") {
+        return (
+            <div style={styles.page} className="app-page">
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", gap: 12, alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center" }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: theme.colors.textPrimary }}>Нет связи с сервером</div>
+                    <div style={{ fontSize: 12, color: theme.colors.textMuted, maxWidth: 280, lineHeight: 1.5 }}>
+                        Не удалось загрузить базу. Проверьте подключение и попробуйте снова.
+                    </div>
+                    <button type="button" style={styles.btnPrimary} onClick={loadCatalog}>Повторить</button>
+                </div>
+            </div>
+        );
+    }
 
     if (route === "/admin" && (adminAuthed || hasAdminSession())) {
         return (
