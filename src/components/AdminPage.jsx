@@ -684,6 +684,13 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
             grid-row: auto !important;
             grid-column: auto !important;
           }
+          /* History view: holds panel + history fill the full width (2 columns). */
+          .admin-grid-container.history-mode {
+            grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) !important;
+          }
+          .admin-grid-container.history-mode > :nth-child(2) {
+            grid-column: 2 !important;
+          }
           .holdsList,
           .table {
             max-height: none !important;
@@ -735,7 +742,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
       `}</style>
 
             <div className="adminSearchFade" style={{ display: "none" }} />
-            <div style={styles.adminGrid} className="admin-grid-container">
+            <div style={styles.adminGrid} className={`admin-grid-container${adminView === "history" ? " history-mode" : ""}`}>
                 {/* Left: holds list */}
                 <Card style={styles.card}>
                     <div style={styles.cardBody} className="holdsCardBody">
@@ -853,7 +860,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
                 </Card>
 
                 {adminView === "history" ? (
-                    <Card style={{ ...styles.card, gridColumn: "2 / 5" }}>
+                    <Card style={styles.card}>
                         <div style={styles.tableBody}>
                             <div style={{ ...styles.tableHeader, justifyContent: "space-between", marginBottom: 12 }}>
                                 <div style={{ ...styles.tableTitleCenter, textAlign: "left", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
