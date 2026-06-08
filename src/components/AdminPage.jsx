@@ -723,20 +723,18 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
         }
         button:focus-visible,
         [role="button"]:focus-visible,
-        input:focus-visible,
-        select:focus-visible,
         a:focus-visible,
         summary:focus-visible {
           outline: 2px solid ${theme.colors.textPrimary} !important;
           outline-offset: 2px !important;
         }
-        /* Search field: show focus on the pill, not as a hard ring on the bare input. */
-        .searchPill input:focus-visible {
+        /* No focus ring on text fields / search inputs. */
+        input:focus,
+        input:focus-visible,
+        select:focus,
+        select:focus-visible {
           outline: none !important;
-        }
-        .searchPill:focus-within {
-          border-color: ${theme.colors.textSecondary} !important;
-          box-shadow: 0 0 0 1px ${theme.colors.textSecondary} !important;
+          box-shadow: none !important;
         }
         button::-moz-focus-inner { border: 0; }
       `}</style>
