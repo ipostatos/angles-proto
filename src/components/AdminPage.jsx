@@ -723,6 +723,14 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
           outline: 2px solid ${theme.colors.textPrimary} !important;
           outline-offset: 2px !important;
         }
+        /* Search field: show focus on the pill, not as a hard ring on the bare input. */
+        .searchPill input:focus-visible {
+          outline: none !important;
+        }
+        .searchPill:focus-within {
+          border-color: ${theme.colors.textSecondary} !important;
+          box-shadow: 0 0 0 1px ${theme.colors.textSecondary} !important;
+        }
         button::-moz-focus-inner { border: 0; }
       `}</style>
 
@@ -773,7 +781,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
                         <input ref={holdCoverInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleHoldCoverUpload} />
 
                         <div className="adminFooter" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            <div style={{ display: "flex", gap: 8 }}>
+                            <div className="adminFooterDivider" style={{ borderTop: `1px solid ${theme.colors.borderLight}`, marginTop: 16, paddingTop: 16, display: "flex", gap: 8 }}>
                                 <button
                                     type="button"
                                     style={{ ...styles.btnGhost, flex: 1, fontWeight: adminView === "catalog" ? 700 : 400 }}
@@ -794,7 +802,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
                                 </button>
                             </div>
 
-                            <div style={styles.footerRow}>
+                            <div style={{ ...styles.footerRow, borderTop: "none", marginTop: 0, paddingTop: 0 }}>
                                 <button style={styles.btnGhost} onClick={handleExit}>BACK</button>
                                 <input
                                     value={newHoldName}
@@ -880,7 +888,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
                                             key={row.id}
                                             style={{
                                                 display: "grid",
-                                                gridTemplateColumns: "140px 110px 130px 1fr 150px",
+                                                gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, 1.2fr)",
                                                 gap: 10,
                                                 alignItems: "center",
                                                 border: `1px solid ${theme.colors.borderLight}`,
@@ -890,11 +898,11 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
                                                 color: theme.colors.textSecondary,
                                             }}
                                         >
-                                            <span style={{ color: theme.colors.textTertiary }}>{formatHistoryDate(row.createdAt)}</span>
-                                            <span style={{ fontWeight: 600, color: theme.colors.textPrimary }}>{row.username || "—"}</span>
-                                            <span>{formatHistoryAction(row)}</span>
+                                            <span style={{ color: theme.colors.textTertiary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatHistoryDate(row.createdAt)}</span>
+                                            <span style={{ fontWeight: 600, color: theme.colors.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.username || "—"}</span>
+                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatHistoryAction(row)}</span>
                                             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.entity || "—"}</span>
-                                            <span style={{ color: theme.colors.textPrimary }}>{formatHistoryChange(row)}</span>
+                                            <span style={{ color: theme.colors.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatHistoryChange(row)}</span>
                                         </div>
                                     ))}
                                 </div>

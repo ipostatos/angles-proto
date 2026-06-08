@@ -953,6 +953,14 @@ export default function App() {
           outline: 2px solid ${theme.colors.textPrimary} !important;
           outline-offset: 2px !important;
         }
+        /* Search field: show focus on the pill, not as a hard ring on the bare input. */
+        .searchPill input:focus-visible {
+          outline: none !important;
+        }
+        .searchPill:focus-within {
+          border-color: ${theme.colors.textSecondary} !important;
+          box-shadow: 0 0 0 1px ${theme.colors.textSecondary} !important;
+        }
         button::-moz-focus-inner { border: 0; }
       `}</style>
 
