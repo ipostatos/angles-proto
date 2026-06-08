@@ -18,7 +18,7 @@
 | D8 | Shared catalog in browser `localStorage` | SEV-MEDIUM | M | Data-at-rest | **DONE** — shared catalog moved to Neon |
 | D9 | Device-local work progress in `localStorage` | SEV-LOW | S | Privacy | ACCEPTED — no credentials/catalog; local UI state only |
 | D10 | Dependency / audit drift | SEV-MEDIUM | S-M | Supply chain | OPEN — run/maintain `npm audit` and upgrades |
-| D11 | No CI/CD security gates | SEV-LOW | M | SDLC | OPEN |
+| D11 | No CI/CD security gates | SEV-LOW | M | SDLC | PARTIAL — CI runs lint/test/build/audit + gitleaks secret scan; branch protection is a GitHub-UI setup step |
 | D12 | Global `outline:none` removes focus visibility | SEV-LOW | S | A11y | OPEN |
 | D13 | `printImage` uses `document.write` into iframe | SEV-LOW | S | Hardening | OPEN (info) |
 | D14 | No documented DB backup/restore procedure | SEV-MEDIUM | S | Operations | **DONE** — `docs/OPERATIONS.md` |
@@ -62,8 +62,10 @@ Accepted when CI runs at least:
 - `npm run build`
 - `npm audit --audit-level=high`
 
-Also enable secret scanning/push protection and branch protection for protected
-branches.
+CI now runs all of the above plus a **gitleaks** secret scan
+(`.github/workflows/ci.yml`, `.gitleaks.toml`). Remaining manual step (GitHub UI,
+not expressible in-repo): enable branch protection / required status checks and
+secret push-protection on `main`.
 
 ---
 

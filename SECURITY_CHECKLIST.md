@@ -110,7 +110,7 @@
 - [✅] `npm run lint` is installed and green
 - [✅] Dependency audit runs locally and in CI
 - [✅] Dependabot configured
-- [❌] SAST/secret scanning workflow not configured
+- [✅] Secret-scanning workflow configured (gitleaks in CI)
 
 ## 13. Privacy
 
