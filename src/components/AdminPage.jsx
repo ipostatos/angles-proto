@@ -6,7 +6,6 @@ import { getSortedHoldNames, findHoldByName, generateHoldId, migrateAndSanitize 
 import { isSafeRasterDataUrl } from '../domain/validation.js';
 import { saveState, loadLastModified, MAX_DB_SIZE_KB, serializedSizeKB } from '../storage/db.js';
 import { pushBackup } from '../storage/backups.js';
-import { ADMIN_SESSION_KEY } from '../storage/auth.js';
 import { downloadJsonFile, readJsonFile } from '../storage/importExport.js';
 import { compressImageFile } from '../utils/image.js';
 import { SaveIcon } from './icons.jsx';
@@ -145,7 +144,7 @@ export function AdminAngleRow({ angle, onUpdate, onRemove, onUpload, onRemoveIma
 }
 
 /* ===================== ADMIN PAGE ===================== */
-export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
+export function AdminPage({ data, setData, onExit, onLogout, currentUser, lastModifiedMs }) {
     const styles = useMemo(() => getStyles(theme), []);
 
     const [draftData, setDraftData] = useState(() => data);
@@ -207,7 +206,11 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         }
         setData(draftData);
         setHasUnsavedChanges(false);
-        toast.success("Changes saved");
+        // TRANSITIONAL (Phase 2C): saveState writes to THIS device's localStorage
+        // only. Shared server persistence (PUT /api/state) lands in Phase 2D, so
+        // these edits are not yet shared and are replaced on the next load from
+        // the server. The message says so to avoid implying a shared save.
+        toast.success("Сохранено на этом устройстве (синхронизация — позже)");
     }, [draftData, setData]);
 
     const handleExit = useCallback(async () => {
@@ -217,12 +220,6 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
         }
         onExit();
     }, [askConfirm, hasUnsavedChanges, onExit]);
-
-    // Session is a one-time token: consume it on mount so re-entering admin
-    // (back button, browser nav, reload) always requires logging in again.
-    useEffect(() => {
-        try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { }
-    }, []);
 
     useEffect(() => {
         if (!hasUnsavedChanges) setDraftData(data);
@@ -722,6 +719,13 @@ export function AdminPage({ data, setData, onExit, lastModifiedMs }) {
                             <div style={{ display: "flex", gap: 8 }}>
                                 <button style={{ ...styles.btnGhost, flex: 1 }} onClick={exportDb}>EXPORT</button>
                                 <button style={{ ...styles.btnGhost, flex: 1 }} onClick={triggerImportDb}>IMPORT</button>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                <span style={{ fontSize: 11, color: theme.colors.textTertiary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {currentUser ? `Вход: ${currentUser}` : ""}
+                                </span>
+                                <button type="button" style={styles.btnGhost} onClick={onLogout}>Выйти</button>
                             </div>
 
                             <div className="adminFooterMeta" style={{ fontSize: 11, color: theme.colors.textTertiary, lineHeight: 1.3 }}>

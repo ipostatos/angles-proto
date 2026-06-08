@@ -2,11 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import toast from "react-hot-toast";
 import { clamp, toAngleLabel } from './domain/angles.js';
 import { normalizeHoldName as normalizeHoldNameSafe, sanitizeHoldList } from './domain/holds.js';
-import { isSafeRasterDataUrl, isStrongAdminPassword, WEAK_PINS } from './domain/validation.js';
 import { migrateAndSanitize, unwrapImportedDb, LS_VERSION, DEFAULT_HOLDS, getSortedHoldNames, findHoldById, findHoldByName } from './domain/migration.js';
 import { loadState, saveState, loadLastModified, touchLastModified, getAndResetDidRecover, LS_KEY, MAX_DB_SIZE_KB } from './storage/db.js';
 import { pushBackup, LS_BACKUPS_KEY } from './storage/backups.js';
-import { hasAdminSession, sha256Hex, ADMIN_HASH_KEY, ADMIN_SESSION_KEY, ADMIN_REMEMBER_KEY } from './storage/auth.js';
+import { getSession, login as apiLogin, logout as apiLogout } from './storage/auth.js';
 import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS_KEY } from './storage/workProgress.js';
 import { downloadJsonFile, readJsonFile, serializedSizeKB } from './storage/importExport.js';
 import { compressImageFile, printImage } from './utils/image.js';
@@ -119,18 +118,20 @@ export default function App() {
     const [holdSearch, setHoldSearch] = useState("");
     const searchRef = useRef(null);
 
-    // admin login modal (appears over the main page, no navigation)
+    // Phase 2C: server-backed auth. currentUser comes from GET /api/session;
+    // null = public viewer. sessionLoading gates only the admin entry, never the
+    // public catalog (which renders as soon as the catalog load resolves).
+    const [currentUser, setCurrentUser] = useState(null);
+    const [sessionLoading, setSessionLoading] = useState(true);
+
+    // username/password login modal (appears over the main page, no navigation)
     const [showLogin, setShowLogin] = useState(false);
-    const [loginUser, setLoginUser] = useState("admin");
+    const [loginUser, setLoginUser] = useState("");
     const [loginPass, setLoginPass] = useState("");
     const [loginShake, setLoginShake] = useState(false);
-    const [loginMode, setLoginMode] = useState("login"); // "login" | "setup"
     const [loginError, setLoginError] = useState("");
+    const [loginLoading, setLoginLoading] = useState(false);
     const [showPass, setShowPass] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
-    // Keeps admin mounted after one-time session token is consumed on AdminPage mount
-    const [adminAuthed, setAdminAuthed] = useState(false);
-    const prevRouteRef = useRef(null);
 
     const [showClearConfirm, setShowClearConfirm] = useState(false);
     const [workMode, setWorkMode] = useState(false);
@@ -143,96 +144,87 @@ export default function App() {
     });
 
     const openAdmin = useCallback(() => {
-        if (hasAdminSession()) {
+        if (currentUser) {
             window.location.hash = "#/admin";
         } else {
+            setLoginUser("");
             setLoginPass("");
             setLoginError("");
-            let storedHash = null;
-            try { storedHash = localStorage.getItem(ADMIN_HASH_KEY); } catch { }
-            setLoginMode(storedHash ? "login" : "setup");
             setShowLogin(true);
         }
+    }, [currentUser]);
+
+    // Phase 2C: who am I? Resolved once on mount from the session cookie. Runs
+    // independently of the catalog load and must NOT gate the public page.
+    useEffect(() => {
+        let cancelled = false;
+        getSession()
+            .then(({ username }) => { if (!cancelled) setCurrentUser(username ?? null); })
+            .catch((err) => {
+                if (cancelled) return;
+                console.warn("Session check failed:", err);
+                setCurrentUser(null);
+            })
+            .finally(() => { if (!cancelled) setSessionLoading(false); });
+        return () => { cancelled = true; };
     }, []);
 
-    // Route guards: require login when entering /admin; clear auth when leaving (browser Back, etc.)
+    // Admin gate: a visitor on /admin without a session is bounced home and shown
+    // the login form. We wait for the session check so a logged-in user reloading
+    // straight onto /admin is never locked out before we know who they are.
     useEffect(() => {
-        const prev = prevRouteRef.current;
-        prevRouteRef.current = route;
-
-        if (prev === "/admin" && route !== "/admin") {
-            setAdminAuthed(false);
-            setShowLogin(false);
-            try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { }
-        }
-
-        if (route === "/admin" && prev !== "/admin" && !adminAuthed && !hasAdminSession()) {
+        if (sessionLoading) return;
+        if (route === "/admin" && !currentUser) {
+            setLoginUser("");
             setLoginPass("");
+            setLoginError("");
             setShowLogin(true);
             if (window.location.hash !== "#/" && window.location.hash !== "#") {
                 window.location.hash = "#/";
             }
         }
-    }, [route, adminAuthed]);
+    }, [route, currentUser, sessionLoading]);
 
     const submitLogin = useCallback(async () => {
-        if (!globalThis.crypto?.subtle) {
-            toast.error("Secure login unavailable here. Open the app over https or localhost.");
-            return;
-        }
-
-        let storedHash = null;
-        try { storedHash = localStorage.getItem(ADMIN_HASH_KEY); } catch { }
-
-        const finish = () => {
-            try { sessionStorage.setItem(ADMIN_SESSION_KEY, "1"); } catch { }
-            if (rememberMe) {
-                try { localStorage.setItem(ADMIN_REMEMBER_KEY, "1"); } catch { }
-            } else {
-                try { localStorage.removeItem(ADMIN_REMEMBER_KEY); } catch { }
-            }
-            setAdminAuthed(true);
-            setShowLogin(false);
-            setLoginPass("");
-            setShowPass(false);
-            window.location.hash = "#/admin";
-        };
-
+        const username = loginUser.trim();
+        const password = loginPass;
         const shake = (msg = "") => {
             setLoginError(msg);
             setLoginShake(true);
             setLoginPass("");
             setTimeout(() => setLoginShake(false), 600);
         };
-
+        if (!username || !password) {
+            shake("Введите логин и пароль");
+            return;
+        }
+        setLoginLoading(true);
+        setLoginError("");
         try {
-            if (!storedHash) {
-                if (!isStrongAdminPassword(loginPass)) {
-                    shake("4 digits, not all the same");
-                    return;
-                }
-                try {
-                    localStorage.setItem(ADMIN_HASH_KEY, await sha256Hex(loginPass));
-                } catch {
-                    shake("Не удалось сохранить пароль");
-                    return;
-                }
-                finish();
-                return;
-            }
-
-            const hash = await sha256Hex(loginPass);
-            if (loginUser === "admin" && hash === storedHash) {
-                setLoginError("");
-                finish();
-            } else {
-                shake();
-            }
+            // Credentials are verified ONLY by the server (/api/login); the
+            // frontend never checks the password itself.
+            const { username: who } = await apiLogin(username, password);
+            setCurrentUser(who ?? username);
+            setShowLogin(false);
+            setLoginPass("");
+            setShowPass(false);
+            window.location.hash = "#/admin";
         } catch (err) {
             console.warn("Login failed:", err);
-            shake();
+            shake(err?.status === 401 ? "Неверный логин или пароль" : "Ошибка входа. Попробуйте снова.");
+        } finally {
+            setLoginLoading(false);
         }
     }, [loginUser, loginPass]);
+
+    const handleLogout = useCallback(async () => {
+        // Best-effort: clear server cookie, then lock the UI regardless.
+        try { await apiLogout(); }
+        catch (err) { console.warn("Logout request failed:", err); }
+        setCurrentUser(null);
+        setShowLogin(false);
+        window.location.hash = "#/";
+    }, []);
 
     // Phase 2B: load the shared catalog from GET /api/state. On failure we show a
     // no-connection state (online-only — no localStorage fallback).
@@ -452,15 +444,15 @@ export default function App() {
         );
     }
 
-    if (route === "/admin" && (adminAuthed || hasAdminSession())) {
+    if (route === "/admin" && currentUser) {
         return (
             <AdminPage
                 data={data}
                 setData={setData}
+                currentUser={currentUser}
+                onLogout={handleLogout}
                 onExit={() => {
                     setShowLogin(false);
-                    setAdminAuthed(false);
-                    try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch { }
                     window.location.hash = "#/";
                 }}
                 lastModifiedMs={lastModifiedMs}
@@ -1304,55 +1296,33 @@ export default function App() {
                             boxSizing: "border-box",
                         }}
                     >
-                        {loginMode === "setup" ? (
-                            <>
-                                <div style={{ textAlign: "center" }}>
-                                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={theme.colors.textPrimary} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 8 }}>
-                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                    </svg>
-                                    <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>FIRST LOGIN</div>
-                                    <div style={{ fontSize: 12, color: theme.colors.textSecondary, lineHeight: 1.5 }}>
-                                        Create a 4-digit admin PIN.
-                                    </div>
-                                </div>
-                                <PasswordInput value={loginPass} onChange={(v) => { if (/^\d{0,4}$/.test(v)) setLoginPass(v); }} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="PIN" styles={styles} inputMode="numeric" maxLength={4} />
-                                {loginError && (
-                                    <div style={{ fontSize: 11, color: "#e53e3e", textAlign: "center", marginTop: -4 }}>
-                                        {loginError}
-                                    </div>
-                                )}
-                                <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 4 }}>
-                                    <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>SET</button>
-                                    <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>CANCEL</button>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ADMIN</div>
-                                <input
-                                    value={loginUser}
-                                    onChange={(e) => setLoginUser(e.target.value)}
-                                    placeholder="LOGIN"
-                                    className="login-modal-input"
-                                    style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
-                                />
-                                <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="Password" styles={styles} autoFocus />
-                                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", justifyContent: "center" }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={rememberMe}
-                                        onChange={(e) => setRememberMe(e.target.checked)}
-                                        style={{ width: 14, height: 14, cursor: "pointer", accentColor: theme.colors.textPrimary }}
-                                    />
-                                    <span style={{ fontSize: 12, color: theme.colors.textSecondary }}>Remember me</span>
-                                </label>
-                                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                    <button type="button" style={{ ...styles.btnPrimary, minWidth: 60 }} onClick={submitLogin}>OK</button>
-                                    <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>CANCEL</button>
-                                </div>
-                            </>
+                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ВХОД</div>
+                        <input
+                            value={loginUser}
+                            onChange={(e) => setLoginUser(e.target.value)}
+                            placeholder="Логин"
+                            className="login-modal-input"
+                            autoFocus
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
+                        />
+                        <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="Пароль" styles={styles} />
+                        <div style={{ fontSize: 11, color: theme.colors.textTertiary, textAlign: "center" }}>
+                            Tomek · Alessandro · Artsi
+                        </div>
+                        {loginError && (
+                            <div style={{ fontSize: 11, color: "#e53e3e", textAlign: "center", marginTop: -4 }}>
+                                {loginError}
+                            </div>
                         )}
+                        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                            <button type="button" style={{ ...styles.btnPrimary, minWidth: 60, opacity: loginLoading ? 0.6 : 1 }} onClick={submitLogin} disabled={loginLoading}>
+                                {loginLoading ? "…" : "Войти"}
+                            </button>
+                            <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>Отмена</button>
+                        </div>
                     </div>
                 </div>
             )}
