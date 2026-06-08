@@ -223,7 +223,7 @@ export default function App() {
             setTimeout(() => setLoginShake(false), 600);
         };
         if (!username || !password) {
-            shake("Введите логин и пароль");
+            shake("Enter username and password");
             return;
         }
         setLoginLoading(true);
@@ -240,7 +240,7 @@ export default function App() {
             window.location.hash = "#/admin";
         } catch (err) {
             console.warn("Login failed:", err);
-            shake(err?.status === 401 ? "Неверный логин или пароль" : "Ошибка входа. Попробуйте снова.");
+            shake(err?.status === 401 ? "Invalid username or password" : "Sign-in error. Please try again.");
         } finally {
             setLoginLoading(false);
         }
@@ -447,11 +447,11 @@ export default function App() {
         return (
             <div style={styles.page} className="app-page">
                 <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", gap: 12, alignItems: "center", justifyContent: "center", padding: 20, textAlign: "center" }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: theme.colors.textPrimary }}>Нет связи с сервером</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: theme.colors.textPrimary }}>No connection to the server</div>
                     <div style={{ fontSize: 12, color: theme.colors.textMuted, maxWidth: 280, lineHeight: 1.5 }}>
-                        Не удалось загрузить базу. Проверьте подключение и попробуйте снова.
+                        Could not load the catalog. Check your connection and try again.
                     </div>
-                    <button type="button" style={styles.btnPrimary} onClick={loadCatalog}>Повторить</button>
+                    <button type="button" style={styles.btnPrimary} onClick={loadCatalog}>Retry</button>
                 </div>
             </div>
         );
@@ -1290,9 +1290,9 @@ export default function App() {
                             textAlign: "center",
                         }}
                     >
-                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>БАЗА ИЗМЕНЕНА</div>
+                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>CATALOG CHANGED</div>
                         <div style={{ fontSize: 13, color: theme.colors.textPrimary, lineHeight: 1.5 }}>
-                            {latestChange.username || "Кто-то"} изменил базу
+                            {latestChange.username || "Someone"} changed the catalog
                         </div>
                         <button
                             type="button"
@@ -1378,11 +1378,11 @@ export default function App() {
                             boxSizing: "border-box",
                         }}
                     >
-                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>ВХОД</div>
+                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>SIGN IN</div>
                         <input
                             value={loginUser}
                             onChange={(e) => setLoginUser(e.target.value)}
-                            placeholder="Логин"
+                            placeholder="Username"
                             className="login-modal-input"
                             autoFocus
                             autoCapitalize="none"
@@ -1390,7 +1390,7 @@ export default function App() {
                             spellCheck={false}
                             style={{ ...styles.input, textAlign: "center", background: theme.colors.inputBg, boxShadow: "none" }}
                         />
-                        <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="Пароль" styles={styles} />
+                        <PasswordInput value={loginPass} onChange={setLoginPass} show={showPass} onToggle={() => setShowPass(v => !v)} placeholder="Password" styles={styles} />
                         <div style={{ fontSize: 11, color: theme.colors.textTertiary, textAlign: "center" }}>
                             Tomek · Alessandro · Artsi
                         </div>
@@ -1401,9 +1401,9 @@ export default function App() {
                         )}
                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                             <button type="button" style={{ ...styles.btnPrimary, minWidth: 60, opacity: loginLoading ? 0.6 : 1 }} onClick={submitLogin} disabled={loginLoading}>
-                                {loginLoading ? "…" : "Войти"}
+                                {loginLoading ? "…" : "Sign in"}
                             </button>
-                            <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>Отмена</button>
+                            <button type="button" style={styles.btnGhost} onClick={() => setShowLogin(false)}>Cancel</button>
                         </div>
                     </div>
                 </div>

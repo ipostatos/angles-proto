@@ -81,8 +81,8 @@ describe('App initial catalog load (Phase 2B read integration)', () => {
     it('shows a no-connection state when the load fails', async () => {
         globalThis.fetch = vi.fn(() => Promise.reject(new Error('offline')));
         render(<App />);
-        await waitFor(() => expect(screen.getByText(/нет связи/i)).toBeTruthy());
-        expect(screen.getByRole('button', { name: /повторить/i })).toBeTruthy();
+        await waitFor(() => expect(screen.getByText(/no connection/i)).toBeTruthy());
+        expect(screen.getByRole('button', { name: /retry/i })).toBeTruthy();
     });
 
     it('renders the main UI after a successful load', async () => {
@@ -136,8 +136,8 @@ describe('App auth/session integration (Phase 2C)', () => {
         render(<App />);
         await waitFor(() => expect(screen.getByRole('button', { name: 'ADMIN' })).toBeTruthy());
         fireEvent.click(screen.getByRole('button', { name: 'ADMIN' }));
-        expect(screen.getByPlaceholderText('Логин')).toBeTruthy();
-        expect(screen.getByPlaceholderText('Пароль')).toBeTruthy();
+        expect(screen.getByPlaceholderText('Username')).toBeTruthy();
+        expect(screen.getByPlaceholderText('Password')).toBeTruthy();
         // No admin surface until credentials are accepted.
         expect(screen.queryByText('EXPORT')).toBeNull();
     });
@@ -148,15 +148,15 @@ describe('App auth/session integration (Phase 2C)', () => {
         await waitFor(() => expect(screen.getByRole('button', { name: 'ADMIN' })).toBeTruthy());
 
         fireEvent.click(screen.getByRole('button', { name: 'ADMIN' }));
-        fireEvent.change(screen.getByPlaceholderText('Логин'), { target: { value: 'Tomek' } });
-        fireEvent.change(screen.getByPlaceholderText('Пароль'), { target: { value: 'Tomek' } });
+        fireEvent.change(screen.getByPlaceholderText('Username'), { target: { value: 'Tomek' } });
+        fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'Tomek' } });
         await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: 'Войти' }));
+            fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
         });
         await waitFor(() => expect(window.location.hash).toBe('#/admin'));
         flushHash();
         await waitFor(() => expect(screen.getByText('EXPORT')).toBeTruthy());
-        expect(screen.getByRole('button', { name: 'Выйти' })).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
     });
 
     it('shows an error and stays locked on invalid credentials', async () => {
@@ -165,12 +165,12 @@ describe('App auth/session integration (Phase 2C)', () => {
         await waitFor(() => expect(screen.getByRole('button', { name: 'ADMIN' })).toBeTruthy());
 
         fireEvent.click(screen.getByRole('button', { name: 'ADMIN' }));
-        fireEvent.change(screen.getByPlaceholderText('Логин'), { target: { value: 'Tomek' } });
-        fireEvent.change(screen.getByPlaceholderText('Пароль'), { target: { value: 'wrong' } });
+        fireEvent.change(screen.getByPlaceholderText('Username'), { target: { value: 'Tomek' } });
+        fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'wrong' } });
         await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: 'Войти' }));
+            fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
         });
-        await waitFor(() => expect(screen.getByText(/неверный логин или пароль/i)).toBeTruthy());
+        await waitFor(() => expect(screen.getByText(/invalid username or password/i)).toBeTruthy());
         expect(screen.queryByText('EXPORT')).toBeNull();
     });
 
@@ -185,7 +185,7 @@ describe('App auth/session integration (Phase 2C)', () => {
         await waitFor(() => expect(screen.getByText('EXPORT')).toBeTruthy());
 
         await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: 'Выйти' }));
+            fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
         });
         await waitFor(() => expect(window.location.hash === '#/' || window.location.hash === '').toBe(true));
         flushHash();
@@ -200,10 +200,10 @@ describe('App auth/session integration (Phase 2C)', () => {
         await waitFor(() => expect(screen.getByRole('button', { name: 'ADMIN' })).toBeTruthy());
 
         fireEvent.click(screen.getByRole('button', { name: 'ADMIN' }));
-        fireEvent.change(screen.getByPlaceholderText('Логин'), { target: { value: 'Tomek' } });
-        fireEvent.change(screen.getByPlaceholderText('Пароль'), { target: { value: 'Tomek' } });
+        fireEvent.change(screen.getByPlaceholderText('Username'), { target: { value: 'Tomek' } });
+        fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'Tomek' } });
         await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: 'Войти' }));
+            fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
         });
         await waitFor(() => expect(window.location.hash).toBe('#/admin'));
         const putCalls = f.mock.calls.filter(([, init]) => init && init.method === 'PUT');
@@ -308,7 +308,7 @@ describe('App latest-change startup modal (Phase 4)', () => {
         });
         globalThis.fetch = f;
         render(<App />);
-        await waitFor(() => expect(screen.getByText('Alessandro изменил базу')).toBeTruthy());
+        await waitFor(() => expect(screen.getByText('Alessandro changed the catalog')).toBeTruthy());
 
         fireEvent.click(screen.getByRole('button', { name: 'OK' }));
         await waitFor(() => expect(window.location.hash).toBe('#/admin'));
@@ -324,7 +324,7 @@ describe('App latest-change startup modal (Phase 4)', () => {
         });
         render(<App />);
         await waitFor(() => expect(screen.getByRole('button', { name: 'ADMIN' })).toBeTruthy());
-        expect(screen.queryByText(/изменил базу/i)).toBeNull();
+        expect(screen.queryByText(/changed the catalog/i)).toBeNull();
         expect(localStorage.getItem('angles_proto_v1_last_seen_change_id')).toBe('9');
     });
 
@@ -336,6 +336,6 @@ describe('App latest-change startup modal (Phase 4)', () => {
         });
         render(<App />);
         await waitFor(() => expect(screen.getByRole('button', { name: 'ADMIN' })).toBeTruthy());
-        expect(screen.queryByText(/изменил базу/i)).toBeNull();
+        expect(screen.queryByText(/changed the catalog/i)).toBeNull();
     });
 });

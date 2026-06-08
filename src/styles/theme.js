@@ -238,6 +238,7 @@ export const getStyles = (theme) => ({
     holdsList: {
         overflow: "auto",
         paddingRight: 4,
+        paddingBottom: 4,
         flex: 1,
         minHeight: 0,
     },
