@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveSeedUsers } from './db-setup.mjs';
+import { resolveSeedUsers } from './seed-users.mjs';
 import { MAX_PASSWORD_LENGTH } from '../api/_lib/auth.js';
 
 describe('resolveSeedUsers', () => {
