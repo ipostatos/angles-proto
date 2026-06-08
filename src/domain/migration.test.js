@@ -55,6 +55,23 @@ describe('migrateAndSanitize', () => {
         const result = migrateAndSanitize(input);
         expect(result.angles).toHaveLength(0);
     });
+    it('imports a v2 export wrapped in { version, data } (regression)', () => {
+        const wrapped = {
+            app: 'AnglesProto',
+            exportedAt: '2026-06-08T11:32:33.060Z',
+            version: 2,
+            data: {
+                version: 2,
+                holds: [{ id: 'h_1', name: 'Austin' }, { id: 'h_2', name: 'Amon' }],
+                angles: [{ id: 'a1', holdId: 'h_1', value: 34.5, saw: 'main' }],
+            },
+        };
+        const result = migrateAndSanitize(wrapped);
+        expect(result.version).toBe(2);
+        expect(result.holds).toHaveLength(2);
+        expect(result.angles).toHaveLength(1);
+        expect(result.angles[0]).toMatchObject({ holdId: 'h_1', value: 34.5, saw: 'main' });
+    });
 });
 
 describe('detectVersion', () => {
