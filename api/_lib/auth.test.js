@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { hashPassword } from './password.js';
-import { authenticateUser } from './auth.js';
+import { MAX_PASSWORD_LENGTH, MAX_USERNAME_LENGTH, authenticateUser } from './auth.js';
 
 // In-memory user store seeded with real (hashed + salted) credentials — no mocks.
 function makeLookup(users) {
@@ -30,6 +30,13 @@ describe('authenticateUser', () => {
     it('returns false for empty credentials', async () => {
         expect(await authenticateUser('', '', lookup)).toBe(false);
         expect(await authenticateUser('Tomek', '', lookup)).toBe(false);
+    });
+
+    it('rejects oversized credentials before lookup/hash work', async () => {
+        const spy = vi.fn(lookup);
+        expect(await authenticateUser('x'.repeat(MAX_USERNAME_LENGTH + 1), 'x', spy)).toBe(false);
+        expect(await authenticateUser('Tomek', 'x'.repeat(MAX_PASSWORD_LENGTH + 1), spy)).toBe(false);
+        expect(spy).not.toHaveBeenCalled();
     });
 
     it('works with an async lookup function', async () => {

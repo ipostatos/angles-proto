@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { handleState } from './state.js';
+import { buildSessionCookie, signSession } from './_lib/session.js';
 
 function mockRes() {
     return {
@@ -33,5 +34,18 @@ describe('/api/state route guards', () => {
             await handleState({ method, headers: {} }, res, explodingStore);
             expect(res.statusCode).toBe(405);
         }
+    });
+
+    it('rejects an oversized PUT body with 413 before storage work', async () => {
+        const token = signSession('Tomek', { secret: 'state-route-test-secret' });
+        process.env.SESSION_SECRET = 'state-route-test-secret';
+        const res = mockRes();
+        await handleState({
+            method: 'PUT',
+            headers: { cookie: buildSessionCookie(token, { secure: false }) },
+            body: JSON.stringify({ data: { holds: [], angles: [] }, revision: 1, pad: 'x'.repeat(6 * 1024 * 1024) }),
+        }, res, explodingStore);
+        expect(res.statusCode).toBe(413);
+        expect(res.body.error).toBe('payload_too_large');
     });
 });

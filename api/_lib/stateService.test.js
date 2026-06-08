@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getState, putState } from './stateService.js';
+import { MAX_HOLDS, MAX_IMAGE_DATA_URL_BYTES, getState, putState } from './stateService.js';
 import { migrateAndSanitize } from '../../src/domain/migration.js';
 
 // ---- in-memory store implementing the same contract as the Neon store ----
@@ -64,6 +64,30 @@ describe('putState — validation & auth-shape', () => {
         // store untouched
         expect(store.row().revision).toBe(1);
         expect(store.log()).toHaveLength(0);
+    });
+
+    it('rejects catalogs that exceed server-side entity limits', async () => {
+        const store = seeded([{ id: 'h1', name: 'Austin' }], [], 1);
+        const holds = Array.from({ length: MAX_HOLDS + 1 }, (_, i) => ({ id: `h${i}`, name: `Hold ${i}` }));
+        const result = await putState(store, {
+            body: { data: { version: 2, holds, angles: [] }, revision: 1 },
+            username: 'Tomek',
+        });
+        expect(result.status).toBe(413);
+        expect(result.body.error).toBe('payload_too_large');
+        expect(store.row().revision).toBe(1);
+    });
+
+    it('rejects oversized inline images before writing', async () => {
+        const store = seeded([{ id: 'h1', name: 'Austin' }], [], 1);
+        const coverImage = `data:image/png;base64,${'a'.repeat(MAX_IMAGE_DATA_URL_BYTES)}`;
+        const result = await putState(store, {
+            body: { data: { version: 2, holds: [{ id: 'h1', name: 'Austin', coverImage }], angles: [] }, revision: 1 },
+            username: 'Tomek',
+        });
+        expect(result.status).toBe(413);
+        expect(result.body.error).toBe('payload_too_large');
+        expect(store.row().revision).toBe(1);
     });
 });
 

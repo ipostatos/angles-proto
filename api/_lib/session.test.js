@@ -58,6 +58,9 @@ describe('parseCookies', () => {
     it('returns {} for missing header', () => {
         expect(parseCookies(undefined)).toEqual({});
     });
+    it('ignores malformed percent-encoded cookie pairs', () => {
+        expect(parseCookies('a=%E0%A4%A; b=2')).toEqual({ b: '2' });
+    });
 });
 
 describe('getSessionUser', () => {
@@ -75,6 +78,10 @@ describe('getSessionUser', () => {
     it('returns null when the session cookie is invalid', () => {
         const header = `${COOKIE_NAME}=garbage.value`;
         expect(getSessionUser(header, opts)).toBeNull();
+    });
+
+    it('returns null when the session cookie has malformed percent-encoding', () => {
+        expect(getSessionUser(`${COOKIE_NAME}=%E0%A4%A`, opts)).toBeNull();
     });
 });
 

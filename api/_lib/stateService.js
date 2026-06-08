@@ -9,6 +9,11 @@ import {
 } from '../../src/domain/migration.js';
 import { diffStates } from '../../src/domain/diff.js';
 
+export const MAX_CATALOG_SIZE_KB = 4500;
+export const MAX_HOLDS = 500;
+export const MAX_ANGLES = 5000;
+export const MAX_IMAGE_DATA_URL_BYTES = 2 * 1024 * 1024;
+
 /**
  * Build the initial catalog the same way the existing localStorage app does
  * (v1 defaults → migrate to v2 → sanitize), so a fresh DB matches a fresh browser.
@@ -21,6 +26,45 @@ export function buildDefaultCatalog() {
 
 function catalogsEqual(a, b) {
     return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function serializedSizeKB(obj) {
+    try {
+        return Buffer.byteLength(JSON.stringify(obj), 'utf8') / 1024;
+    } catch {
+        return Infinity;
+    }
+}
+
+function dataUrlByteLength(value) {
+    return typeof value === 'string' ? Buffer.byteLength(value, 'utf8') : 0;
+}
+
+export function validateCatalogLimits(data) {
+    if (!data || typeof data !== 'object') return { ok: false, status: 400, message: 'data must be an object' };
+    if (!Array.isArray(data.holds) || !Array.isArray(data.angles)) {
+        return { ok: false, status: 400, message: 'data.holds and data.angles must be arrays' };
+    }
+    if (data.holds.length > MAX_HOLDS) {
+        return { ok: false, status: 413, message: `too many holds (max ${MAX_HOLDS})` };
+    }
+    if (data.angles.length > MAX_ANGLES) {
+        return { ok: false, status: 413, message: `too many angles (max ${MAX_ANGLES})` };
+    }
+    for (const hold of data.holds) {
+        if (dataUrlByteLength(hold?.coverImage) > MAX_IMAGE_DATA_URL_BYTES) {
+            return { ok: false, status: 413, message: 'hold cover image is too large' };
+        }
+    }
+    for (const angle of data.angles) {
+        if (dataUrlByteLength(angle?.drawing) > MAX_IMAGE_DATA_URL_BYTES) {
+            return { ok: false, status: 413, message: 'angle drawing image is too large' };
+        }
+    }
+    if (serializedSizeKB(data) > MAX_CATALOG_SIZE_KB) {
+        return { ok: false, status: 413, message: `catalog is too large (max ${MAX_CATALOG_SIZE_KB}KB)` };
+    }
+    return { ok: true };
 }
 
 export function validatePutBody(body) {
@@ -66,6 +110,13 @@ export async function putState(store, { body, username }) {
     }
 
     const sanitized = migrateAndSanitize(body.data);
+    const sizeValid = validateCatalogLimits(sanitized);
+    if (!sizeValid.ok) {
+        return {
+            status: sizeValid.status,
+            body: { error: sizeValid.status === 413 ? 'payload_too_large' : 'invalid_body', message: sizeValid.message },
+        };
+    }
     const current = await readOrInit(store);
 
     if (Number(body.revision) !== current.revision) {

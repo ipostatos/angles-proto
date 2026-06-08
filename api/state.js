@@ -3,7 +3,9 @@
 import { getState, putState } from './_lib/stateService.js';
 import { neonStore } from './_lib/stateStore.js';
 import { getSessionUser } from './_lib/session.js';
-import { readJsonBody } from './_lib/http.js';
+import { PayloadTooLargeError, readJsonBody } from './_lib/http.js';
+
+export const STATE_BODY_LIMIT_BYTES = 5 * 1024 * 1024;
 
 /** Testable handler: store is injected so it can be exercised without a DB. */
 export async function handleState(req, res, store) {
@@ -20,7 +22,7 @@ export async function handleState(req, res, store) {
                 res.status(401).json({ error: 'unauthorized' });
                 return;
             }
-            const body = await readJsonBody(req);
+            const body = await readJsonBody(req, { maxBytes: STATE_BODY_LIMIT_BYTES });
             const result = await putState(store, { body, username });
             res.status(result.status).json(result.body);
             return;
@@ -28,6 +30,10 @@ export async function handleState(req, res, store) {
 
         res.status(405).json({ error: 'Method not allowed' });
     } catch (err) {
+        if (err instanceof PayloadTooLargeError) {
+            res.status(413).json({ error: err.code, message: err.message });
+            return;
+        }
         console.error('/api/state failed:', err);
         res.status(500).json({ error: 'Server error' });
     }

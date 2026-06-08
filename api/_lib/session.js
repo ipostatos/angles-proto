@@ -70,7 +70,12 @@ export function parseCookies(cookieHeader) {
         if (idx === -1) continue;
         const key = part.slice(0, idx).trim();
         if (!key) continue;
-        out[key] = decodeURIComponent(part.slice(idx + 1).trim());
+        try {
+            out[key] = decodeURIComponent(part.slice(idx + 1).trim());
+        } catch {
+            // Malformed Cookie percent-encoding is attacker-controlled input.
+            // Ignore that pair and let auth fail closed instead of throwing 500.
+        }
     }
     return out;
 }
