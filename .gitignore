@@ -13,3 +13,6 @@ base.json
 Base_*.json
 angles-db.json
 *-db.json
+
+.vercel
+.env*.local
