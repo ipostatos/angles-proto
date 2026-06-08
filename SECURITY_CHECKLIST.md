@@ -1,160 +1,143 @@
 # SECURITY CHECKLIST — angles-proto
 
-> Pre-launch defensive checklist. Date: 2026-05-29.
-> Legend: ✅ pass · ⚠️ partial/needs work · ❌ fail/missing · N/A not applicable (no backend) · ❔ UNVERIFIED
+> Pre-launch defensive checklist for the shared-backend architecture. Date: 2026-06-08.
+> Legend: ✅ pass · ⚠️ partial/needs work · ❌ fail/missing · N/A not applicable
 
 ---
 
 ## 1. Project Inventory
-- [✅] Stack identified (React 18 + Vite 5 SPA, client-only)
+
+- [✅] Stack identified: React 19 + Vite 8 SPA, Vercel Functions, Neon Postgres
+- [✅] Server routes identified: `/api/login`, `/api/logout`, `/api/session`, `/api/state`, `/api/history`
+- [✅] DB schema present: `users`, `app_state`, `change_log`
 - [✅] No `.env` / secrets files in repo
-- [N/A] Docker / containers
-- [❌] CI/CD pipelines (none present)
-- [N/A] Routes/controllers/server actions (no server)
-- [N/A] DB schema / migrations
-- [✅] Upload/export handlers reviewed
-- [❌] Automated tests (none present)
+- [✅] Lockfile present
+- [✅] Automated tests present
+- [❌] CI/CD pipeline not present
 
 ## 2. Authentication
-- [⚠️] Password hashing — SHA-256 **unsalted, client-side** (HIGH-3)
-- [❌] Login rate limiting / lockout (HIGH-4)
-- [✅] Generic error on wrong creds ("Wrong credentials")
-- [N/A] Email verification
-- [N/A] Reset tokens (one-time/TTL/hashed)
-- [N/A] Session cookies httpOnly/Secure/SameSite (no cookies)
-- [⚠️] Logout invalidation — clears in-memory + sessionStorage; no server session
-- [N/A] JWT expiration/algorithm
-- [N/A] OAuth redirect allowlist / state / PKCE
-- [❌] No tokens in localStorage — password **hash** stored in localStorage (HIGH-3)
-- [✅] No auth secrets in client bundle (no server secrets exist)
-- [❌] Default credentials removed (`admin`/`admin` bootstrap present) (HIGH-2)
 
-## 3. Authorization / IDOR / Multi-Tenant
-- [N/A] Ownership checks (no server, no multi-tenant data)
-- [N/A] No query-by-id-alone
-- [N/A] No client-controlled ownerId/role/plan
-- [⚠️] Admin routes require role check — **client-only gate, bypassable** (CRITICAL-1)
-- [⚠️] Exports/downloads protected — export gated only by client admin UI
-- [N/A] Worker re-checks / cache key scoping
+- [✅] Password verification server-side only
+- [✅] Passwords stored as salted scrypt hashes
+- [✅] Session cookie is httpOnly and SameSite=Strict
+- [✅] Secure cookie flag is set in production/Vercel env
+- [✅] No password hash or bearer token in localStorage
+- [✅] Logout clears the session cookie
+- [⚠️] Seeded users currently use password = username
+- [❌] No login rate limiting / lockout
 
-## 4. API Security (OWASP API Top 10)
-- [N/A] API1 BOLA, API3 BOPLA, API5/6, API7 SSRF, API10 — no API
-- [⚠️] API2 Broken Auth (CRITICAL-1, HIGH-2/3/4)
-- [⚠️] API4 Resource consumption — import size capped ✅; login unthrottled ❌
-- [⚠️] API8 Misconfiguration — no CSP/headers (MEDIUM), dep CVEs (MEDIUM)
+## 3. Authorization
+
+- [✅] Public catalog read is intentional
+- [✅] `PUT /api/state` requires a valid session
+- [✅] `GET /api/history` requires a valid session
+- [✅] Frontend admin route is UX only; server endpoints are authoritative
+- [N/A] Role separation: all named users are equal admins by product decision
+
+## 4. API Security
+
+- [✅] State-changing API uses same-origin credentials
+- [✅] Invalid methods return 405 on implemented routes
+- [✅] Unauthenticated writes/history return 401
+- [✅] `PUT /api/state` validates body shape server-side
+- [✅] Optimistic revision locking prevents stale overwrite
+- [✅] Change log is derived server-side from old/new catalog snapshots
+- [⚠️] No request rate limiting
+- [⚠️] No centralized monitoring/alerting
 
 ## 5. Input Validation / Injection
-- [✅] No `dangerouslySetInnerHTML` / `innerHTML` / `eval` / `new Function`
-- [✅] Dynamic text rendered as escaped React children
-- [⚠️] Client-side sanitization (`migrateAndSanitize`) — allowlist + clamp; **no server validation** (N/A)
-- [✅] Angle values numeric + clamped `0–90`
-- [✅] No raw SQL / command exec (none)
-- [⚠️] SVG via import accepted unsanitized (MEDIUM, D6)
-- [✅] No XXE (no XML), low ReDoS, JSON-only deserialization (size-capped)
-- [✅] No obvious prototype pollution (field allowlist, no deep merge of untrusted keys)
+
+- [✅] No `dangerouslySetInnerHTML`, `eval`, or dynamic HTML injection
+- [✅] React escapes dynamic text
+- [✅] Catalog data is sanitized with allowlisted fields
+- [✅] Angle values are numeric and clamped to `0..90`
+- [✅] Raw SQL uses Neon tagged template parameterization
+- [✅] SVG image data URLs are rejected
+- [✅] JSON import is size-capped and parsed through migration/sanitization
 
 ## 6. File Upload / Parser
-- [✅] Import size limit (`MAX_DB_SIZE_KB`, file + serialized)
-- [⚠️] Magic-byte validation — upload re-encodes via canvas (effective); import trusts `data:image/*` prefix (D6)
-- [⚠️] MIME not trusted alone — upload path also decodes via `<img>`/canvas; import path weaker
-- [✅] No server filesystem / path traversal (no server)
-- [N/A] Private storage / download authZ (client-only)
-- [✅] Malformed file handling (try/catch + toast)
-- [❌] SVG sanitization (D6)
-- [N/A] Archive bomb / XXE / worker isolation
 
-## 7. SaaS Business Logic Abuse
-- [N/A] Plan limits / quotas / entitlements / subscriptions (none)
+- [✅] Uploads must be browser-decoded as images
+- [✅] Uploaded images are re-encoded/compressed through canvas
+- [✅] Import accepts only raster image data URLs
+- [✅] Oversized imports are rejected before save
+- [N/A] No server filesystem upload path
 
-## 8. Rate Limiting / Anti-Bot
-- [❌] Login throttle (HIGH-4)
-- [✅] Import size/quota guard
-- [N/A] Registration / forgot-password / server endpoints / AI calls
+## 7. Secrets
 
-## 9. Webhooks / Payments
-- [N/A] No webhooks or payment provider
+- [✅] `DATABASE_URL` and `SESSION_SECRET` are server-only
+- [✅] No `VITE_` secret usage
+- [✅] No hardcoded API keys found in app code
+- [✅] DB dumps are gitignored
+- [⚠️] Historical DB dump exposure was previously remediated; residual public clones/caches cannot be fully recalled
 
-## 10. Secrets
-- [✅] No hardcoded secrets in source/bundle
-- [✅] No `.env` committed
-- [N/A] Docker/CI secrets
-- [✅] No secrets in frontend env
-- [✅] **RESOLVED:** DB dumps removed from git history (monitor GitHub GC residual)
+## 8. Frontend / Browser Security
 
-## 11. Frontend / Browser Security
-- [✅] No secrets in bundle
-- [✅] No unsafe HTML rendering
-- [❌] CSP (MEDIUM, D5)
-- [❔] HSTS (host-dependent; not configured in repo)
-- [❌] X-Content-Type-Options (D5)
-- [❌] Frame protection / `frame-ancestors` (D5)
-- [❌] Referrer-Policy (D5)
-- [❌] Permissions-Policy (D5)
-- [✅] No third-party scripts (external font links removed)
+- [✅] CSP and hardening headers configured in `vercel.json`
+- [✅] No third-party scripts
 - [✅] No PII in URLs
-- [⚠️] UI-only access control (CRITICAL-1)
+- [✅] ErrorBoundary avoids raw stack display to users
+- [⚠️] Global focus-outline suppression remains an accessibility debt
+- [⚠️] `printImage` uses `document.write` into an isolated iframe
 
-## 12. CSRF / CORS
-- [N/A] CSRF (no cookies / no server state changes)
-- [N/A] CORS (no server / no cross-origin API)
-- [✅] No state-changing requests over the network at all
+## 9. CSRF / CORS
 
-## 13. Database
-- [N/A] All DB items — data lives in `localStorage` only
-- [⚠️] "Backups" exist client-side (`*_backups`, ring of 5); no server backup/restore plan
+- [✅] API is same-origin
+- [✅] Session cookie uses SameSite=Strict
+- [✅] CSP keeps `connect-src 'self'`
+- [N/A] Cross-origin API access is not supported
 
-## 14. Worker / Queue
-- [N/A] No workers/queues
+## 10. Database
 
-## 15. Deployment / Infrastructure
-- [❔] HTTPS forced (host default; `UNVERIFIED`)
-- [❌] HSTS / strict headers (D5)
-- [N/A] Strict CORS
-- [N/A] Prod/staging/dev secret separation (no secrets)
-- [❔] Preview deploy isolation (no secrets, so low risk; `UNVERIFIED`)
-- [N/A] Private storage buckets
-- [✅] No debug/stack-trace leakage to users (ErrorBoundary shows generic message)
-- [❌] Monitoring/alerting (none)
+- [✅] Shared catalog stored in Neon `app_state`
+- [✅] Single-row `app_state` constraint
+- [✅] Revision compare-and-set on writes
+- [✅] Change log index on `created_at DESC`
+- [⚠️] No documented automated DB backup/restore procedure in repo
 
-## 16. CI/CD / Supply Chain
-- [✅] Lockfile present (`package-lock.json`)
-- [⚠️] Dependency audit — 3 moderate (build/dev only) (D8)
-- [✅] No suspicious packages (only react, react-dom, react-hot-toast, vite, plugin-react)
-- [❌] GitHub Actions permissions / required checks (none)
-- [❌] Fork-PR secret isolation (no Actions)
-- [❌] Branch protection (D10)
-- [❌] Dependabot/Renovate (D10)
-- [❌] Secret scanning / push protection (D10)
-- [❌] SAST (D10)
-- [N/A] Docker image scanning
+## 11. Deployment / Infrastructure
 
-## 17. Logging / Monitoring
-- [⚠️] Auth/security events — only `console.warn`; no central log
-- [✅] No secrets/PII over-logged
-- [N/A] Correlation IDs / alerts (no server)
+- [✅] Vercel-compatible `/api` function layout
+- [✅] `vercel.json` security headers
+- [⚠️] Full local backend requires Vercel CLI and env pull
+- [❌] Monitoring/alerting not configured in repo
+- [❌] CI required checks not configured in repo
 
-## 18. Privacy
-- [✅] Minimal data; no personal data collected by design
-- [✅] No PII in URLs/logs/analytics (no analytics)
-- [⚠️] Deletion/export — export exists; data deletion = clear `localStorage` (document it)
-- [N/A] Third-party processors
+## 12. Supply Chain
 
-## 19. AI / LLM Security
-- [N/A] No AI/LLM integration
+- [✅] `package-lock.json` present
+- [✅] Minimal runtime dependency set
+- [⚠️] `npm run lint` script exists but ESLint packages are not installed
+- [⚠️] Dependency audit must be maintained as part of release process
+- [❌] Dependabot/Renovate not configured
+- [❌] SAST/secret scanning workflow not configured
+
+## 13. Privacy
+
+- [✅] No analytics/telemetry in app code
+- [✅] Work progress/theme/last-seen id are device-local only
+- [✅] Export is user-initiated
+- [⚠️] Change history stores usernames and edit metadata indefinitely
 
 ---
 
 ## Go / No-Go Gate
 
-**GO (as local single-operator tool)** — Stage 0 complete:
-- [x] D2: removed live default creds from README + enforce ≥8-char first-run password
-- [x] D5: added CSP + security headers (`vercel.json`) — *verify CSP at runtime incl. print flow*
-- [x] D6: imported images restricted to raster (PNG/JPEG/WebP/GIF; SVG rejected)
-- [x] D8: `npm audit fix` applied (postcss); vite/esbuild major upgrade still scheduled
-- [x] Documented that admin mode is **not** a security boundary (README)
-- [x] D7: `_corrupt_*` retention capped to newest copy
+**GO for internal workshop shared use** when:
 
-**NO-GO for public/multi-user use** until D1 (server-side auth/authZ) is implemented.
+- [x] Server-side auth/session protects writes and history
+- [x] Shared catalog saves use revision locking
+- [x] Change history exists
+- [x] Latest-change notification exists
+- [x] Security headers are configured
+- [x] Tests and build pass
+
+**NO-GO for broad public exposure** until:
+
+- [ ] Seeded weak passwords are replaced or rotated
+- [ ] Login rate limiting exists
+- [ ] CI/security checks are configured
+- [ ] Operational DB backup/restore process is documented
 
 ---
 

@@ -1,5 +1,13 @@
 # SECURITY AUDIT — angles-proto
 
+> **Historical note (2026-06-08):** this audit was written before the
+> shared-backend migration. The app now has Vercel Functions, Neon Postgres,
+> server-side scrypt password verification, httpOnly session cookies,
+> authenticated writes/history, revision locking, and an audit log. Treat this
+> file as the pre-backend baseline. Current security posture is tracked in
+> [`THREAT_MODEL.md`](THREAT_MODEL.md), [`SECURITY_CHECKLIST.md`](SECURITY_CHECKLIST.md),
+> and [`SECURITY_DEBT.md`](SECURITY_DEBT.md).
+
 > Defensive AppSec review before production launch. **Audit only** — no code was modified to produce this report.
 > Date: 2026-05-29 · Reviewer: AppSec review pass · Commit baseline: `a4475fb` (post history-rewrite)
 
