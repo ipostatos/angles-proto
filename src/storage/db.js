@@ -1,4 +1,3 @@
-import toast from 'react-hot-toast';
 import { migrateAndSanitize } from '../domain/migration.js';
 
 export const LS_KEY = 'angles_proto_v1';
@@ -68,22 +67,59 @@ export async function loadState() {
     return { data, revision: Number.isFinite(revisionNum) ? revisionNum : null };
 }
 
-export function saveState(next) {
-    try {
-        const safe = migrateAndSanitize(next);
-        localStorage.setItem(LS_KEY, JSON.stringify(safe));
-        touchLastModified();
-        return true;
-    } catch (err) {
-        if (err?.name === 'QuotaExceededError' || err?.code === 22) {
-            console.warn('Storage full: image not saved. Use smaller images or remove some drawings.');
-            toast.error('Storage full. Remove some drawings or upload smaller images.');
-        } else {
-            console.warn('Save failed:', err);
-            toast.error('Could not save. Changes may be lost.');
-        }
-        return false;
+/**
+ * Phase 2D: authenticated shared-catalog save.
+ * Sends the full sanitized catalog with the revision it was based on. The
+ * server enforces optimistic locking and returns 409 when another user saved
+ * first. Callers decide how to surface stale_revision to the user.
+ */
+export async function saveState(next, revision) {
+    if (typeof revision !== 'number' || !Number.isFinite(revision)) {
+        const err = new Error('Cannot save before a server revision is loaded');
+        err.status = 400;
+        err.code = 'missing_revision';
+        throw err;
     }
+
+    const safe = migrateAndSanitize(next);
+    let res;
+    try {
+        res = await fetch('/api/state', {
+            method: 'PUT',
+            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ data: safe, revision }),
+        });
+    } catch (err) {
+        throw new Error('Failed to reach /api/state', { cause: err });
+    }
+
+    let body = null;
+    try {
+        body = await res.json();
+    } catch {
+        body = null;
+    }
+
+    if (!res.ok) {
+        const err = new Error(body?.message || `/api/state responded with status ${res.status}`);
+        err.status = res.status;
+        err.body = body;
+        err.code = body?.error;
+        err.currentRevision = Number.isFinite(Number(body?.currentRevision)) ? Number(body.currentRevision) : null;
+        throw err;
+    }
+
+    if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object') {
+        throw new Error('Invalid /api/state save response shape');
+    }
+    const nextRevision = Number(body.revision);
+    touchLastModified();
+    return {
+        data: migrateAndSanitize(body.data),
+        revision: Number.isFinite(nextRevision) ? nextRevision : revision,
+        changes: Number.isFinite(Number(body.changes)) ? Number(body.changes) : null,
+    };
 }
 
 export function serializedSizeKB(obj) {

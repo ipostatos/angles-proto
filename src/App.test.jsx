@@ -33,7 +33,7 @@ function okFetch(body) {
  * driven independently. `sessionUser` controls who /api/session reports;
  * `loginOk` controls whether /api/login succeeds (else 401).
  */
-function makeApiRouter({ sessionUser = null, loginOk = true } = {}) {
+function makeApiRouter({ sessionUser = null, loginOk = true, saveOk = true, saveStatus = 200, saveBody = null } = {}) {
     return vi.fn((url, init = {}) => {
         const method = init.method || 'GET';
         const json = (body, ok = true, status = 200) =>
@@ -46,6 +46,13 @@ function makeApiRouter({ sessionUser = null, loginOk = true } = {}) {
         }
         if (url === '/api/logout') return json({ ok: true });
         if (url === '/api/state' && method === 'GET') return json(sampleBody);
+        if (url === '/api/state' && method === 'PUT') {
+            if (!saveOk) {
+                return json(saveBody || { error: 'stale_revision', currentRevision: 3 }, false, saveStatus);
+            }
+            const parsed = JSON.parse(init.body || '{}');
+            return json(saveBody || { data: parsed.data, revision: 3, changes: 1 });
+        }
         return Promise.reject(new Error(`unexpected fetch: ${method} ${url}`));
     });
 }
@@ -85,7 +92,7 @@ describe('App initial catalog load (Phase 2B read integration)', () => {
         expect(screen.getByText('Austin')).toBeTruthy();
     });
 
-    it('does not send a PUT to /api/state during this phase', async () => {
+    it('does not auto-save with PUT to /api/state after the initial load', async () => {
         const f = okFetch(sampleBody);
         globalThis.fetch = f;
         render(<App />);
@@ -201,5 +208,58 @@ describe('App auth/session integration (Phase 2C)', () => {
         const putCalls = f.mock.calls.filter(([, init]) => init && init.method === 'PUT');
         expect(putCalls).toHaveLength(0);
         expect(f.mock.calls.some(([url]) => url === '/api/login')).toBe(true);
+    });
+});
+
+describe('App shared save integration (Phase 2D)', () => {
+    it('saves admin edits with PUT /api/state using the loaded revision', async () => {
+        const f = makeApiRouter({ sessionUser: 'Tomek' });
+        globalThis.fetch = f;
+        render(<App />);
+        await waitFor(() => expect(screen.getAllByText('MAIN').length).toBeGreaterThan(0));
+
+        act(() => { window.location.hash = '#/admin'; });
+        flushHash();
+        await waitFor(() => expect(screen.getByText('EXPORT')).toBeTruthy());
+
+        fireEvent.change(screen.getByPlaceholderText('NEW'), { target: { value: 'Blade X' } });
+        fireEvent.click(screen.getByRole('button', { name: '+' }));
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: /save/i }));
+        });
+
+        await waitFor(() => {
+            const putCalls = f.mock.calls.filter(([url, init]) => url === '/api/state' && init?.method === 'PUT');
+            expect(putCalls).toHaveLength(1);
+            const body = JSON.parse(putCalls[0][1].body);
+            expect(body.revision).toBe(2);
+            expect(body.data.holds.some((h) => h.name === 'Blade X')).toBe(true);
+        });
+        await waitFor(() => expect(screen.getByRole('button', { name: /^save$/i })).toBeTruthy());
+    });
+
+    it('keeps admin edits unsaved when the server reports a stale revision', async () => {
+        const f = makeApiRouter({
+            sessionUser: 'Tomek',
+            saveOk: false,
+            saveStatus: 409,
+            saveBody: { error: 'stale_revision', message: 'Catalog changed', currentRevision: 3 },
+        });
+        globalThis.fetch = f;
+        render(<App />);
+        await waitFor(() => expect(screen.getAllByText('MAIN').length).toBeGreaterThan(0));
+
+        act(() => { window.location.hash = '#/admin'; });
+        flushHash();
+        await waitFor(() => expect(screen.getByText('EXPORT')).toBeTruthy());
+
+        fireEvent.change(screen.getByPlaceholderText('NEW'), { target: { value: 'Blade Y' } });
+        fireEvent.click(screen.getByRole('button', { name: '+' }));
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: /save/i }));
+        });
+
+        await waitFor(() => expect(screen.getByRole('button', { name: /save \*/i })).toBeTruthy());
+        expect(screen.getByText('Blade Y')).toBeTruthy();
     });
 });

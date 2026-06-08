@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { clamp, toAngleLabel } from '../domain/angles.js';
-import { normalizeHoldName as normalizeHoldNameSafe } from '../domain/holds.js';
-import { getSortedHoldNames, findHoldByName, generateHoldId, migrateAndSanitize } from '../domain/migration.js';
-import { isSafeRasterDataUrl } from '../domain/validation.js';
-import { saveState, loadLastModified, MAX_DB_SIZE_KB, serializedSizeKB } from '../storage/db.js';
+import { getSortedHoldNames, generateHoldId, migrateAndSanitize } from '../domain/migration.js';
+import { saveState, MAX_DB_SIZE_KB, serializedSizeKB } from '../storage/db.js';
 import { pushBackup } from '../storage/backups.js';
 import { downloadJsonFile, readJsonFile } from '../storage/importExport.js';
 import { compressImageFile } from '../utils/image.js';
@@ -144,7 +142,7 @@ export function AdminAngleRow({ angle, onUpdate, onRemove, onUpload, onRemoveIma
 }
 
 /* ===================== ADMIN PAGE ===================== */
-export function AdminPage({ data, setData, onExit, onLogout, currentUser, lastModifiedMs }) {
+export function AdminPage({ data, setData, serverRevision, onCatalogSaved, onExit, onLogout, currentUser, lastModifiedMs }) {
     const styles = useMemo(() => getStyles(theme), []);
 
     const [draftData, setDraftData] = useState(() => data);
@@ -159,6 +157,7 @@ export function AdminPage({ data, setData, onExit, onLogout, currentUser, lastMo
     const [zoomedImage, setZoomedImage] = useState(null);
     const [confirmState, setConfirmState] = useState(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [saving, setSaving] = useState(false);
     const confirmResolverRef = useRef(null);
 
     const [adminHoldSearch, setAdminHoldSearch] = useState("");
@@ -198,20 +197,29 @@ export function AdminPage({ data, setData, onExit, onLogout, currentUser, lastMo
         setDraftData((prev) => (typeof updater === "function" ? updater(prev) : updater));
     }, []);
 
-    const handleSave = useCallback(() => {
-        const ok = saveState(draftData);
-        if (!ok) {
-            // saveState already surfaced the reason; keep the unsaved flag so the user can retry.
-            return;
+    const handleSave = useCallback(async () => {
+        if (saving) return;
+        setSaving(true);
+        try {
+            const saved = await saveState(draftData, serverRevision);
+            setData(saved.data);
+            onCatalogSaved?.(saved);
+            setDraftData(saved.data);
+            setHasUnsavedChanges(false);
+            toast.success("База сохранена");
+        } catch (err) {
+            console.warn("Shared save failed:", err);
+            if (err?.status === 409 || err?.code === "stale_revision") {
+                toast.error("База уже изменилась. Обновите страницу и повторите правку.", { duration: 7000 });
+            } else if (err?.status === 401) {
+                toast.error("Сессия истекла. Войдите снова.");
+            } else {
+                toast.error("Не удалось сохранить базу. Попробуйте снова.");
+            }
+        } finally {
+            setSaving(false);
         }
-        setData(draftData);
-        setHasUnsavedChanges(false);
-        // TRANSITIONAL (Phase 2C): saveState writes to THIS device's localStorage
-        // only. Shared server persistence (PUT /api/state) lands in Phase 2D, so
-        // these edits are not yet shared and are replaced on the next load from
-        // the server. The message says so to avoid implying a shared save.
-        toast.success("Сохранено на этом устройстве (синхронизация — позже)");
-    }, [draftData, setData]);
+    }, [draftData, onCatalogSaved, saving, serverRevision, setData]);
 
     const handleExit = useCallback(async () => {
         if (hasUnsavedChanges) {
@@ -708,12 +716,13 @@ export function AdminPage({ data, setData, onExit, onLogout, currentUser, lastMo
 
                             <button
                                 type="button"
-                                style={{ ...styles.btnGhost, width: "100%" }}
+                                style={{ ...styles.btnGhost, width: "100%", opacity: saving ? 0.65 : 1 }}
                                 onClick={handleSave}
+                                disabled={saving}
                                 title="Save all changes"
                             >
                                 <SaveIcon />
-                                SAVE{hasUnsavedChanges ? " *" : ""}
+                                {saving ? "SAVING…" : `SAVE${hasUnsavedChanges ? " *" : ""}`}
                             </button>
 
                             <div style={{ display: "flex", gap: 8 }}>

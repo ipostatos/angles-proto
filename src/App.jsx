@@ -1,15 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { clamp, toAngleLabel } from './domain/angles.js';
-import { normalizeHoldName as normalizeHoldNameSafe, sanitizeHoldList } from './domain/holds.js';
-import { migrateAndSanitize, unwrapImportedDb, LS_VERSION, DEFAULT_HOLDS, getSortedHoldNames, findHoldById, findHoldByName } from './domain/migration.js';
-import { loadState, saveState, loadLastModified, touchLastModified, getAndResetDidRecover, LS_KEY, MAX_DB_SIZE_KB } from './storage/db.js';
-import { pushBackup, LS_BACKUPS_KEY } from './storage/backups.js';
+import { getSortedHoldNames, findHoldById } from './domain/migration.js';
+import { loadState, loadLastModified, getAndResetDidRecover } from './storage/db.js';
 import { getSession, login as apiLogin, logout as apiLogout } from './storage/auth.js';
 import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS_KEY } from './storage/workProgress.js';
-import { downloadJsonFile, readJsonFile, serializedSizeKB } from './storage/importExport.js';
-import { compressImageFile, printImage } from './utils/image.js';
-import { SearchIcon, PrinterIcon, SaveIcon, ZoomIcon, PhoneIcon, SortIcon } from './components/icons.jsx';
+import { printImage } from './utils/image.js';
+import { SearchIcon, PrinterIcon, ZoomIcon, PhoneIcon, SortIcon } from './components/icons.jsx';
 import { Card } from './components/Card.jsx';
 import { ConfirmDialog } from './components/ConfirmDialog.jsx';
 import { PasswordInput } from './components/PasswordInput.jsx';
@@ -56,19 +52,6 @@ const DEFAULT_ANGLES = [
     { id: cryptoRandomId(), hold: "Amon", value: 50.0, saw: "stefan" },
 ];
 
-/* -------------------- tiny debounce hook (P0) -------------------- */
-function useDebounce(value, delay) {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const t = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(t);
-    }, [value, delay]);
-    return debounced;
-}
-
-/* -------------------- STORAGE: migration + sanitize -------------------- */
-
-
 function useHashRoute() {
     const [hash, setHash] = useState(() => window.location.hash || "#/");
     useEffect(() => {
@@ -88,8 +71,7 @@ export default function App() {
     // safe catalog so the data-derived hooks below never see null; a loading/error
     // overlay gates rendering until the fetch resolves.
     const [data, setData] = useState(() => ({ version: 2, holds: [], angles: [] }));
-    // Server revision — tracked now so Phase 2C/2D server-save wiring is trivial.
-    // Not used for saving in this phase.
+    // Server revision used by AdminPage SAVE for optimistic locking.
     const [serverRevision, setServerRevision] = useState(null);
     // "loading" → "ready" | "error"
     const [loadStatus, setLoadStatus] = useState("loading");
@@ -243,23 +225,6 @@ export default function App() {
     }, []);
 
     useEffect(() => { loadCatalog(); }, [loadCatalog]);
-
-    // P0: debounce localStorage writes. Skip the first run so we don't immediately
-    // re-write storage on mount.
-    // TRANSITIONAL (Phase 2B): saveState still writes to localStorage only — server
-    // save (PUT /api/state with serverRevision) is wired in Phase 2C/2D. Admin edits
-    // made now are therefore NOT shared and are dropped on the next load (which comes
-    // from the server). This is an intentional intermediate-phase limitation.
-    const debouncedData = useDebounce(data, 500);
-    const skipFirstSaveRef = useRef(true);
-    useEffect(() => {
-        if (skipFirstSaveRef.current) {
-            skipFirstSaveRef.current = false;
-            return;
-        }
-        saveState(debouncedData);
-        setLastModifiedMs(loadLastModified());
-    }, [debouncedData]);
 
     // Surface a one-time warning if stored data was unreadable and we recovered.
     useEffect(() => {
@@ -449,6 +414,12 @@ export default function App() {
             <AdminPage
                 data={data}
                 setData={setData}
+                serverRevision={serverRevision}
+                onCatalogSaved={({ data: savedData, revision }) => {
+                    setData(savedData);
+                    setServerRevision(revision);
+                    setLastModifiedMs(loadLastModified());
+                }}
                 currentUser={currentUser}
                 onLogout={handleLogout}
                 onExit={() => {
