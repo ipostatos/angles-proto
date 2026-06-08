@@ -316,7 +316,7 @@ export default function App() {
         }
 
         return { main, stefan };
-    }, [data.angles, selectedHolds, mainSort, stefanSort]);
+    }, [data.angles, data.holds, selectedHolds, mainSort, stefanSort]);
 
     const activeAngle = useMemo(
         () => data.angles.find((a) => a.id === activeAngleId) || null,

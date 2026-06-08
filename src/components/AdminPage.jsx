@@ -177,8 +177,8 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
 
     const [draftData, setDraftData] = useState(() => data);
 
-    const holdsSafe = useMemo(() => getSortedHoldNames(Array.isArray(draftData?.holds) ? draftData.holds : []), [draftData?.holds]);
-    const anglesSafe = Array.isArray(draftData?.angles) ? draftData.angles : [];
+    const holdsSafe = useMemo(() => getSortedHoldNames(Array.isArray(draftData?.holds) ? draftData.holds : []), [draftData]);
+    const anglesSafe = useMemo(() => Array.isArray(draftData?.angles) ? draftData.angles : [], [draftData]);
 
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [newHoldName, setNewHoldName] = useState("");
