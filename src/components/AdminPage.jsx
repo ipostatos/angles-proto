@@ -172,7 +172,7 @@ export function AdminAngleRow({ angle, onUpdate, onRemove, onUpload, onRemoveIma
 }
 
 /* ===================== ADMIN PAGE ===================== */
-export function AdminPage({ data, setData, serverRevision, onCatalogSaved, onExit, onLogout, currentUser, lastModifiedMs }) {
+export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initialView = "catalog", onHistoryViewed, onExit, onLogout, currentUser, lastModifiedMs }) {
     const styles = useMemo(() => getStyles(theme), []);
 
     const [draftData, setDraftData] = useState(() => data);
@@ -188,7 +188,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, onExi
     const [confirmState, setConfirmState] = useState(null);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [adminView, setAdminView] = useState("catalog");
+    const [adminView, setAdminView] = useState(initialView === "history" ? "history" : "catalog");
     const [historyRows, setHistoryRows] = useState([]);
     const [historyStatus, setHistoryStatus] = useState("idle");
     const confirmResolverRef = useRef(null);
@@ -246,6 +246,14 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, onExi
     useEffect(() => {
         if (adminView === "history" && historyStatus === "idle") refreshHistory();
     }, [adminView, historyStatus, refreshHistory]);
+
+    useEffect(() => {
+        if (initialView === "history") setAdminView("history");
+    }, [initialView]);
+
+    useEffect(() => {
+        if (adminView === "history") onHistoryViewed?.();
+    }, [adminView, onHistoryViewed]);
 
     const handleSave = useCallback(async () => {
         if (saving) return;
@@ -766,6 +774,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, onExi
                                     style={{ ...styles.btnGhost, flex: 1, fontWeight: adminView === "history" ? 700 : 400 }}
                                     onClick={() => {
                                         setAdminView("history");
+                                        onHistoryViewed?.();
                                         if (historyStatus === "error") refreshHistory();
                                     }}
                                 >

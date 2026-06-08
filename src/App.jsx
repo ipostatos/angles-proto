@@ -34,6 +34,23 @@ import { theme, getStyles } from './styles/theme.js';
  */
 
 const APP_VERSION = "1.01";
+const LS_LAST_SEEN_CHANGE_KEY = "angles_proto_v1_last_seen_change_id";
+
+function loadLastSeenChangeId() {
+    try {
+        const raw = localStorage.getItem(LS_LAST_SEEN_CHANGE_KEY);
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : 0;
+    } catch {
+        return 0;
+    }
+}
+
+function saveLastSeenChangeId(id) {
+    const n = Number(id);
+    if (!Number.isFinite(n)) return;
+    try { localStorage.setItem(LS_LAST_SEEN_CHANGE_KEY, String(n)); } catch {}
+}
 
 
 function cryptoRandomId() {
@@ -104,7 +121,10 @@ export default function App() {
     // null = public viewer. sessionLoading gates only the admin entry, never the
     // public catalog (which renders as soon as the catalog load resolves).
     const [currentUser, setCurrentUser] = useState(null);
+    const [latestChange, setLatestChange] = useState(null);
     const [sessionLoading, setSessionLoading] = useState(true);
+    const [showDbChanged, setShowDbChanged] = useState(false);
+    const [adminInitialView, setAdminInitialView] = useState("catalog");
 
     // username/password login modal (appears over the main page, no navigation)
     const [showLogin, setShowLogin] = useState(false);
@@ -141,15 +161,41 @@ export default function App() {
     useEffect(() => {
         let cancelled = false;
         getSession()
-            .then(({ username }) => { if (!cancelled) setCurrentUser(username ?? null); })
+            .then(({ username, latestChange }) => {
+                if (cancelled) return;
+                setCurrentUser(username ?? null);
+                setLatestChange(latestChange ?? null);
+            })
             .catch((err) => {
                 if (cancelled) return;
                 console.warn("Session check failed:", err);
                 setCurrentUser(null);
+                setLatestChange(null);
             })
             .finally(() => { if (!cancelled) setSessionLoading(false); });
         return () => { cancelled = true; };
     }, []);
+
+    const markLatestChangeSeen = useCallback(() => {
+        const id = Number(latestChange?.id);
+        if (Number.isFinite(id)) saveLastSeenChangeId(id);
+        setShowDbChanged(false);
+    }, [latestChange]);
+
+    useEffect(() => {
+        if (!currentUser || !latestChange) {
+            setShowDbChanged(false);
+            return;
+        }
+        const id = Number(latestChange.id);
+        if (!Number.isFinite(id)) return;
+        if (latestChange.username === currentUser) {
+            saveLastSeenChangeId(id);
+            setShowDbChanged(false);
+            return;
+        }
+        setShowDbChanged(id > loadLastSeenChangeId());
+    }, [currentUser, latestChange]);
 
     // Admin gate: a visitor on /admin without a session is bounced home and shown
     // the login form. We wait for the session check so a logged-in user reloading
@@ -187,6 +233,7 @@ export default function App() {
             // frontend never checks the password itself.
             const { username: who } = await apiLogin(username, password);
             setCurrentUser(who ?? username);
+            setLatestChange(null);
             setShowLogin(false);
             setLoginPass("");
             setShowPass(false);
@@ -204,6 +251,7 @@ export default function App() {
         try { await apiLogout(); }
         catch (err) { console.warn("Logout request failed:", err); }
         setCurrentUser(null);
+        setLatestChange(null);
         setShowLogin(false);
         window.location.hash = "#/";
     }, []);
@@ -420,6 +468,8 @@ export default function App() {
                     setServerRevision(revision);
                     setLastModifiedMs(loadLastModified());
                 }}
+                initialView={adminInitialView}
+                onHistoryViewed={markLatestChangeSeen}
                 currentUser={currentUser}
                 onLogout={handleLogout}
                 onExit={() => {
@@ -1195,6 +1245,55 @@ export default function App() {
                     >
                         ×
                     </button>
+                </div>
+            )}
+
+            {showDbChanged && latestChange && (
+                <div
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        background: "rgba(0,0,0,0.32)",
+                        backdropFilter: "blur(3px)",
+                        WebkitBackdropFilter: "blur(3px)",
+                        zIndex: 9998,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 20,
+                    }}
+                >
+                    <div
+                        style={{
+                            width: "100%",
+                            maxWidth: 320,
+                            background: theme.colors.cardBg,
+                            border: `1px solid ${theme.colors.border}`,
+                            borderRadius: 8,
+                            padding: 24,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 12,
+                            boxSizing: "border-box",
+                            textAlign: "center",
+                        }}
+                    >
+                        <div style={{ ...styles.adminTitle, marginBottom: 4, textAlign: "center" }}>БАЗА ИЗМЕНЕНА</div>
+                        <div style={{ fontSize: 13, color: theme.colors.textPrimary, lineHeight: 1.5 }}>
+                            {latestChange.username || "Кто-то"} изменил базу
+                        </div>
+                        <button
+                            type="button"
+                            style={{ ...styles.btnPrimary, alignSelf: "center", minWidth: 80 }}
+                            onClick={() => {
+                                markLatestChangeSeen();
+                                setAdminInitialView("history");
+                                window.location.hash = "#/admin";
+                            }}
+                        >
+                            OK
+                        </button>
+                    </div>
                 </div>
             )}
 

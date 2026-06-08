@@ -33,12 +33,12 @@ function okFetch(body) {
  * driven independently. `sessionUser` controls who /api/session reports;
  * `loginOk` controls whether /api/login succeeds (else 401).
  */
-function makeApiRouter({ sessionUser = null, loginOk = true, saveOk = true, saveStatus = 200, saveBody = null, historyRows = [] } = {}) {
+function makeApiRouter({ sessionUser = null, latestChange = null, loginOk = true, saveOk = true, saveStatus = 200, saveBody = null, historyRows = [] } = {}) {
     return vi.fn((url, init = {}) => {
         const method = init.method || 'GET';
         const json = (body, ok = true, status = 200) =>
             Promise.resolve({ ok, status, json: () => Promise.resolve(body) });
-        if (url === '/api/session') return json({ username: sessionUser });
+        if (url === '/api/session') return json({ username: sessionUser, latestChange });
         if (url === '/api/login') {
             if (!loginOk) return json({ error: 'Invalid credentials' }, false, 401);
             const { username } = JSON.parse(init.body || '{}');
@@ -296,5 +296,46 @@ describe('App history integration (Phase 3)', () => {
         expect(screen.getAllByText('Austin').length).toBeGreaterThan(0);
         expect(screen.getByText('30 → 45')).toBeTruthy();
         expect(f.mock.calls.some(([url]) => String(url).startsWith('/api/history'))).toBe(true);
+    });
+});
+
+describe('App latest-change startup modal (Phase 4)', () => {
+    it('shows a changed-database modal for another user and OK opens history', async () => {
+        const f = makeApiRouter({
+            sessionUser: 'Tomek',
+            latestChange: { id: 8, username: 'Alessandro', createdAt: '2026-06-08T12:00:00.000Z' },
+            historyRows: [{ id: 8, username: 'Alessandro', action: 'hold_added', entity: 'Austin', createdAt: '2026-06-08T12:00:00.000Z' }],
+        });
+        globalThis.fetch = f;
+        render(<App />);
+        await waitFor(() => expect(screen.getByText('Alessandro изменил базу')).toBeTruthy());
+
+        fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+        await waitFor(() => expect(window.location.hash).toBe('#/admin'));
+        flushHash();
+        await waitFor(() => expect(screen.getByText('Hold added')).toBeTruthy());
+        expect(localStorage.getItem('angles_proto_v1_last_seen_change_id')).toBe('8');
+    });
+
+    it('does not show the changed-database modal for the current user own latest change', async () => {
+        globalThis.fetch = makeApiRouter({
+            sessionUser: 'Tomek',
+            latestChange: { id: 9, username: 'Tomek', createdAt: '2026-06-08T12:00:00.000Z' },
+        });
+        render(<App />);
+        await waitFor(() => expect(screen.getByRole('button', { name: 'ADMIN' })).toBeTruthy());
+        expect(screen.queryByText(/изменил базу/i)).toBeNull();
+        expect(localStorage.getItem('angles_proto_v1_last_seen_change_id')).toBe('9');
+    });
+
+    it('does not show the changed-database modal for already seen changes', async () => {
+        localStorage.setItem('angles_proto_v1_last_seen_change_id', '12');
+        globalThis.fetch = makeApiRouter({
+            sessionUser: 'Tomek',
+            latestChange: { id: 12, username: 'Artsi', createdAt: '2026-06-08T12:00:00.000Z' },
+        });
+        render(<App />);
+        await waitFor(() => expect(screen.getByRole('button', { name: 'ADMIN' })).toBeTruthy());
+        expect(screen.queryByText(/изменил базу/i)).toBeNull();
     });
 });

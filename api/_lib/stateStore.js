@@ -92,4 +92,10 @@ export const neonStore = {
             createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
         }));
     },
+
+    /** Read the newest change-log row summary for startup notifications. */
+    async readLatestChange() {
+        const rows = await this.readHistory(1);
+        return rows[0] ?? null;
+    },
 };

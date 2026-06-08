@@ -19,6 +19,13 @@ describe('getSession', () => {
         expect(result.username).toBe('Tomek');
     });
 
+    it('passes through latestChange when present', async () => {
+        const latestChange = { id: 4, username: 'Artsi', createdAt: '2026-06-08T12:00:00.000Z' };
+        globalThis.fetch = vi.fn(() => jsonResponse({ username: 'Tomek', latestChange }));
+        const result = await getSession();
+        expect(result.latestChange).toEqual(latestChange);
+    });
+
     it('returns null username when no session is present', async () => {
         globalThis.fetch = vi.fn(() => jsonResponse({ username: null }));
         const result = await getSession();
