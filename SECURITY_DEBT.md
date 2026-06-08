@@ -11,8 +11,8 @@
 | D1 | Client-only admin gate | SEV-CRITICAL | L | Architecture | **DONE** — writes/history require server-verified httpOnly session |
 | D2 | Default `admin`/`admin` bootstrap | SEV-HIGH | S | Auth | **DONE** — removed; named users are server-seeded |
 | D3 | Client-side SHA-256 password hash in `localStorage` | SEV-HIGH | M | Crypto | **DONE** — passwords are server-side scrypt hashes in Neon |
-| D4 | Weak seeded passwords (`password = username`) | SEV-HIGH | S | Auth | OPEN — accepted internal debt |
-| D5 | No login rate limit/lockout | SEV-HIGH | S-M | Anti-abuse | OPEN |
+| D4 | Weak seeded passwords (`password = username`) | SEV-HIGH | S | Auth | **DONE** — explicit env passwords required by default |
+| D5 | Distributed login rate limit/lockout | SEV-HIGH | S-M | Anti-abuse | PARTIAL — best-effort in-memory throttle |
 | D6 | Security headers / CSP | SEV-MEDIUM | S | Config | **DONE** — `vercel.json` |
 | D7 | JSON import accepts SVG | SEV-MEDIUM | S | Input validation | **DONE** — raster data URL allowlist |
 | D8 | Shared catalog in browser `localStorage` | SEV-MEDIUM | M | Data-at-rest | **DONE** — shared catalog moved to Neon |
@@ -31,19 +31,20 @@ Effort: S <= 1h, M <= half-day, L > 1 day.
 
 ### D4 — Weak Seeded Passwords
 
-Current `scripts/db-setup.mjs` seeds `Tomek`, `Alessandro`, and `Artsi` with
-password = username. This is accepted only for the internal workshop rollout.
+`scripts/db-setup.mjs` seeds `Tomek`, `Alessandro`, and `Artsi` only when
+explicit passwords are provided through `SEED_PASSWORD_<USERNAME>` env vars or a
+`SEED_USER_PASSWORDS` JSON map. The legacy password = username mode requires
+`ALLOW_WEAK_SEED_PASSWORDS=true` and is intended only for local/internal setup.
 
-Accept when one of these is true:
-
-- Seed script accepts secure per-user passwords from env/secret input.
-- Users are forced to rotate on first login.
-- An external identity provider replaces seeded local users.
+Accepted. Future improvements: user-initiated password rotation or an external
+identity provider.
 
 ### D5 — Login Rate Limiting
 
-Accept when `/api/login` has a server-side throttle/lockout keyed by username
-and source signal, with generic errors and no password enumeration.
+Accept fully when `/api/login` uses a distributed throttle/lockout keyed by
+username and source signal, with generic errors and no password enumeration.
+The current in-memory throttle is a useful first layer but does not share state
+across serverless instances.
 
 ### D10 — Dependency / Audit Drift
 
@@ -52,9 +53,10 @@ framework/tooling upgrades are tested with `npm test` and `npm run build`.
 
 ### D11 — CI/CD Security Gates
 
-Accept when CI runs at least:
+Accepted when CI runs at least:
 
 - `npm ci`
+- `npm run lint`
 - `npm test`
 - `npm run build`
 - `npm audit --audit-level=high`

@@ -13,7 +13,7 @@
 - [✅] No `.env` / secrets files in repo
 - [✅] Lockfile present
 - [✅] Automated tests present
-- [❌] CI/CD pipeline not present
+- [✅] CI/CD pipeline present
 
 ## 2. Authentication
 
@@ -23,8 +23,8 @@
 - [✅] Secure cookie flag is set in production/Vercel env
 - [✅] No password hash or bearer token in localStorage
 - [✅] Logout clears the session cookie
-- [⚠️] Seeded users currently use password = username
-- [❌] No login rate limiting / lockout
+- [✅] Seeded users require explicit env passwords by default
+- [⚠️] Login has best-effort in-memory rate limiting; distributed lockout still pending
 
 ## 3. Authorization
 
@@ -42,7 +42,7 @@
 - [✅] `PUT /api/state` validates body shape server-side
 - [✅] Optimistic revision locking prevents stale overwrite
 - [✅] Change log is derived server-side from old/new catalog snapshots
-- [⚠️] No request rate limiting
+- [⚠️] Login is rate-limited in-memory; no shared/distributed limiter yet
 - [⚠️] No centralized monitoring/alerting
 
 ## 5. Input Validation / Injection
@@ -101,15 +101,15 @@
 - [✅] `vercel.json` security headers
 - [⚠️] Full local backend requires Vercel CLI and env pull
 - [❌] Monitoring/alerting not configured in repo
-- [❌] CI required checks not configured in repo
+- [✅] CI required checks configured in repo
 
 ## 12. Supply Chain
 
 - [✅] `package-lock.json` present
 - [✅] Minimal runtime dependency set
-- [⚠️] `npm run lint` script exists but ESLint packages are not installed
-- [⚠️] Dependency audit must be maintained as part of release process
-- [❌] Dependabot/Renovate not configured
+- [✅] `npm run lint` is installed and green
+- [✅] Dependency audit runs locally and in CI
+- [✅] Dependabot configured
 - [❌] SAST/secret scanning workflow not configured
 
 ## 13. Privacy
@@ -134,9 +134,9 @@
 
 **NO-GO for broad public exposure** until:
 
-- [ ] Seeded weak passwords are replaced or rotated
-- [ ] Login rate limiting exists
-- [ ] CI/security checks are configured
+- [x] Seeded weak passwords are replaced or explicitly opt-in only
+- [x] Login rate limiting exists
+- [x] CI/security checks are configured
 - [ ] Operational DB backup/restore process is documented
 
 ---

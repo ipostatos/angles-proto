@@ -71,7 +71,16 @@ Required server-only environment variables:
 ```env
 DATABASE_URL=postgresql://...
 SESSION_SECRET=long-random-secret
+SEED_PASSWORD_TOMEK=...
+SEED_PASSWORD_ALESSANDRO=...
+SEED_PASSWORD_ARTSI=...
 ```
+
+Alternatively, set `SEED_USER_PASSWORDS` to a JSON object such as
+`{"Tomek":"...","Alessandro":"...","Artsi":"..."}`. The legacy
+`password = username` seed mode is available only with
+`ALLOW_WEAK_SEED_PASSWORDS=true` and should be used for local/internal setup
+only.
 
 Build and tests:
 
@@ -89,7 +98,7 @@ npm run audit
 Open `/#/admin` or click **ADMIN** in the app.
 
 - Login uses username + password against `/api/login`.
-- Seeded users are `Tomek`, `Alessandro`, and `Artsi`; the setup script currently seeds password = username for the internal workshop deployment.
+- Seeded users are `Tomek`, `Alessandro`, and `Artsi`; the setup script requires explicit seed passwords from env by default.
 - The session is stored only as a server-set httpOnly cookie.
 - Admin SAVE sends the full catalog plus server revision to `PUT /api/state`.
 - If the catalog changed since the admin loaded it, the server returns `409 stale_revision`; the UI keeps the draft unsaved and asks the user to reload before retrying.
@@ -116,7 +125,7 @@ Security headers are configured in [`vercel.json`](vercel.json): CSP, HSTS, `X-F
 
 Known limitations:
 
-- Seeded password = username is accepted internal debt for the workshop context.
+- Seeded passwords must be supplied through env; `password = username` is opt-in only via `ALLOW_WEAK_SEED_PASSWORDS=true`.
 - `/api/login` has best-effort in-memory rate limiting; production-grade distributed throttling still needs shared storage.
 - Public catalog read is intentional; admin writes and history require a valid session.
 - Secrets stay server-side only (`DATABASE_URL`, `SESSION_SECRET`).

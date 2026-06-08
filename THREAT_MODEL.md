@@ -86,10 +86,11 @@ Admin browser
 
 ### Spoofing
 
-- **T-S1 — Guess seeded admin credentials.** Current seeded password = username
-  is weak by design for the internal workshop rollout. **Mitigation:** server-side
-  scrypt hashes, httpOnly cookies, no client-side password storage. **Residual:**
-  High until stronger passwords or rate limiting exist.
+- **T-S1 — Guess admin credentials.** Seed passwords are provided through
+  server-side env by default; the legacy password = username seed mode is
+  explicit opt-in only. **Mitigation:** server-side scrypt hashes, httpOnly
+  cookies, login throttling, no client-side password storage. **Residual:**
+  Medium until distributed rate limiting/password rotation exist.
 - **T-S2 — Forge session cookie.** Session token is HMAC-signed with
   `SESSION_SECRET`. **Mitigation:** `verifySession`, timing-safe signature check,
   expiry, httpOnly cookie. **Residual:** Low if `SESSION_SECRET` stays secret.
@@ -125,8 +126,9 @@ Admin browser
 
 - **T-D1 — Oversized import/images.** File-size and serialized-size guards plus
   image compression reduce browser storage/memory risk. **Residual:** Low.
-- **T-D2 — Login brute force.** No rate limiting yet. **Residual:** High for
-  exposed deployments.
+- **T-D2 — Login brute force.** `/api/login` has best-effort in-memory
+  throttling keyed by username and source IP. **Residual:** Medium for exposed
+  deployments until the limiter uses shared storage across serverless instances.
 - **T-D3 — Backend/database outage.** Public app shows "Нет связи с сервером" and
   retry; no offline catalog fallback. **Residual:** Accepted online-only design.
 
@@ -142,7 +144,7 @@ Admin browser
 
 ## 7. Key Risks Carried Forward
 
-1. Seeded password = username and no login rate limiting.
+1. Login throttling is currently in-memory, not distributed across serverless instances.
 2. Online-only dependency on Vercel Functions and Neon availability.
 3. Public catalog read is intentional but should remain clearly documented.
 4. No automatic merge/reapply for stale admin edits.
