@@ -70,4 +70,26 @@ export const neonStore = {
             inserted: row.inserted ?? 0,
         };
     },
+
+    /** Read newest change-log rows for the admin history tab. */
+    async readHistory(limit = 200) {
+        const sql = getSql();
+        const safeLimit = Math.max(1, Math.min(Number(limit) || 200, 500));
+        const rows = await sql`
+            SELECT id, username, action, entity, field, old_value, new_value, created_at
+              FROM change_log
+             ORDER BY created_at DESC, id DESC
+             LIMIT ${safeLimit}
+        `;
+        return rows.map((r) => ({
+            id: Number(r.id),
+            username: r.username,
+            action: r.action,
+            entity: r.entity,
+            field: r.field,
+            oldValue: r.old_value,
+            newValue: r.new_value,
+            createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+        }));
+    },
 };

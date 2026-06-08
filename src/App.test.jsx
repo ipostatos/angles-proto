@@ -33,7 +33,7 @@ function okFetch(body) {
  * driven independently. `sessionUser` controls who /api/session reports;
  * `loginOk` controls whether /api/login succeeds (else 401).
  */
-function makeApiRouter({ sessionUser = null, loginOk = true, saveOk = true, saveStatus = 200, saveBody = null } = {}) {
+function makeApiRouter({ sessionUser = null, loginOk = true, saveOk = true, saveStatus = 200, saveBody = null, historyRows = [] } = {}) {
     return vi.fn((url, init = {}) => {
         const method = init.method || 'GET';
         const json = (body, ok = true, status = 200) =>
@@ -53,6 +53,7 @@ function makeApiRouter({ sessionUser = null, loginOk = true, saveOk = true, save
             const parsed = JSON.parse(init.body || '{}');
             return json(saveBody || { data: parsed.data, revision: 3, changes: 1 });
         }
+        if (String(url).startsWith('/api/history') && method === 'GET') return json({ rows: historyRows });
         return Promise.reject(new Error(`unexpected fetch: ${method} ${url}`));
     });
 }
@@ -261,5 +262,39 @@ describe('App shared save integration (Phase 2D)', () => {
 
         await waitFor(() => expect(screen.getByRole('button', { name: /save \*/i })).toBeTruthy());
         expect(screen.getByText('Blade Y')).toBeTruthy();
+    });
+});
+
+describe('App history integration (Phase 3)', () => {
+    it('loads and renders the authenticated admin history tab', async () => {
+        const f = makeApiRouter({
+            sessionUser: 'Tomek',
+            historyRows: [
+                {
+                    id: 7,
+                    username: 'Alessandro',
+                    action: 'angle_changed',
+                    entity: 'Austin',
+                    field: 'value',
+                    oldValue: '30',
+                    newValue: '45',
+                    createdAt: '2026-06-08T12:00:00.000Z',
+                },
+            ],
+        });
+        globalThis.fetch = f;
+        render(<App />);
+        await waitFor(() => expect(screen.getAllByText('MAIN').length).toBeGreaterThan(0));
+
+        act(() => { window.location.hash = '#/admin'; });
+        flushHash();
+        await waitFor(() => expect(screen.getByText('EXPORT')).toBeTruthy());
+
+        fireEvent.click(screen.getByRole('button', { name: 'HISTORY' }));
+        await waitFor(() => expect(screen.getByText('Alessandro')).toBeTruthy());
+        expect(screen.getByText('Angle changed')).toBeTruthy();
+        expect(screen.getAllByText('Austin').length).toBeGreaterThan(0);
+        expect(screen.getByText('30 → 45')).toBeTruthy();
+        expect(f.mock.calls.some(([url]) => String(url).startsWith('/api/history'))).toBe(true);
     });
 });
