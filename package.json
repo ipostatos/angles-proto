@@ -10,9 +10,11 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src --report-unused-disable-directives --max-warnings 0",
-    "audit": "npm audit --audit-level=high"
+    "audit": "npm audit --audit-level=high",
+    "db:setup": "node scripts/db-setup.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-hot-toast": "^2.6.0"
