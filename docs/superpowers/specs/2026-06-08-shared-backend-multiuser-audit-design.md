@@ -70,6 +70,7 @@ CREATE TABLE users (
 CREATE TABLE app_state (
   id         INT PRIMARY KEY DEFAULT 1,          -- single-row table
   data       JSONB NOT NULL,                     -- { version, holds, angles }
+  revision   BIGINT NOT NULL DEFAULT 0,          -- bumped on every successful PUT
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT single_row CHECK (id = 1)
 );
@@ -104,9 +105,30 @@ current default catalog (migrated to v2) on first run if empty.
 | `GET`  | `/api/session` | public | Returns `{ username \| null, latestChange: { id, username, created_at } \| null }`. |
 | `POST` | `/api/login`   | public | Verify username/password → set httpOnly, Secure, SameSite=Strict, HMAC-signed session cookie. Returns `{ username }`. |
 | `POST` | `/api/logout`  | public | Clear the session cookie. |
-| `GET`  | `/api/state`   | public | Return the sanitized catalog `{ version, holds, angles }`. |
-| `PUT`  | `/api/state`   | session | Save the catalog **and** write history (see §7). Returns the new sanitized catalog. |
+| `GET`  | `/api/state`   | public | Return `{ data: { version, holds, angles }, revision }`. |
+| `PUT`  | `/api/state`   | session | Body `{ data, revision }`. Save **and** write history (see §7). On success returns `{ data, revision }` with the bumped revision. On stale revision returns **409 Conflict** (see §5.1). |
 | `GET`  | `/api/history` | session | Return change-log rows, newest first (default limit 200). |
+
+### 5.1 Concurrency / "always the latest base" (revision)
+
+The shared base must always reflect the **most up-to-date** state — a device that
+loaded the catalog a while ago must not silently clobber a newer edit made by
+someone else. This is enforced with an **optimistic-concurrency revision**:
+
+- `app_state.revision` is a monotonically increasing counter, bumped on every
+  successful `PUT`.
+- `GET /api/state` returns the current `revision` alongside `data`. The client
+  holds onto it.
+- `PUT /api/state` must echo back the `revision` it was based on. The server
+  applies the write **only if** the supplied revision equals the current one
+  (compare-and-set), inside the same transaction as the diff + history insert.
+- If they differ, the base moved on under the client → respond **409 Conflict**
+  (include the current `{ data, revision }`). The client must reload the latest
+  base, re-apply its edit on top, and retry — never blind-overwrite.
+
+This guarantees writes always build on the freshest base and the audit log stays
+consistent with the catalog. (Phase 0 only fixes the contract; enforcement lands
+with the `/api/state` implementation in a later phase.)
 
 **Session token:** a compact HMAC-signed value (e.g. `username.expiry.signature`)
 signed with `SESSION_SECRET`. No third-party auth dependency required. Cookie is
@@ -119,8 +141,10 @@ leave the server and are never stored.
 ## 6. Frontend changes
 
 - **`src/storage/db.js`** — `loadState` / `saveState` become **async** and call
-  `/api/state` (GET / PUT). The domain sanitization import stays. The whole
-  `data` object keeps its current shape, so React state code changes little.
+  `/api/state` (GET / PUT). They thread the `revision` (load returns it, save
+  sends it back and handles 409 by reloading + surfacing a "база обновилась"
+  prompt). The domain sanitization import stays. The whole `data` object keeps
+  its current shape, so React state code changes little.
 - **`src/App.jsx`** — initial catalog load moves from a synchronous
   `useState(() => loadState())` to an effect-driven fetch with **loading** and
   **no-connection** states (online-only).
@@ -201,8 +225,9 @@ Because diff + write are atomic, the journal can never drift from the catalog.
 
 1. **Backend foundation** — Neon provisioning, schema + seed, session helper,
    `login` / `logout` / `session` endpoints, password hashing.
-2. **Shared catalog** — `GET` / `PUT /api/state`, async `db.js`, App.jsx
-   loading/error states, replace PIN login with user/password login.
+2. **Shared catalog** — `GET` / `PUT /api/state` with revision compare-and-set
+   (409 on stale), async `db.js`, App.jsx loading/error states, replace PIN
+   login with user/password login.
 3. **History** — `diffStates`, transactional logging in `PUT /api/state`,
    `GET /api/history`, the admin "История изменений" tab.
 4. **Startup modal** — `latestChange` in `/api/session`, `lastSeenChangeId`
