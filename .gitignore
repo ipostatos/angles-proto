@@ -3,10 +3,14 @@ UI/
 .claude/
 node_modules/
 dist/
+coverage/
 .env
 .env.local
 .DS_Store
+Thumbs.db
 *.log
+npm-debug.log*
+*.tmp
 
 # Exported / local database dumps — must never be committed
 base.json
