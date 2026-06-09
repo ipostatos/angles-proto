@@ -277,7 +277,7 @@ export default function App() {
     // Surface a one-time warning if stored data was unreadable and we recovered.
     useEffect(() => {
         if (getAndResetDidRecover()) {
-            toast.error("Saved data was unreadable...", { duration: 6000 });
+            toast.error("Some saved data was unreadable and has been reset.", { duration: 6000 });
         }
     }, []);
 
