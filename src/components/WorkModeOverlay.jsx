@@ -26,7 +26,8 @@ function WorkModeFilterSelect({ value, onChange, t }) {
 }
 
 /* Single row with checkbox in work mode */
-function WorkModeRow({ row, checked, isNext, onToggle, t }) {
+function WorkModeRow({ row, checked, isNext, isSkipped, onToggle, t }) {
+    const accent = isNext ? t.next : isSkipped ? t.skipped : null;
     return (
         <div
             onClick={(e) => onToggle(row.id, e)}
@@ -36,7 +37,7 @@ function WorkModeRow({ row, checked, isNext, onToggle, t }) {
                 background: t.card, border: `1px solid ${t.border}`,
                 borderRadius: 4, padding: "8px 10px", marginBottom: 4,
                 cursor: "pointer",
-                borderLeft: isNext ? `4px solid ${t.next}` : `1px solid ${t.border}`,
+                borderLeft: accent ? `4px solid ${accent}` : `1px solid ${t.border}`,
             }}
         >
             <span style={{ fontWeight: 700, fontSize: 18, color: checked ? t.strike : t.text, textDecoration: checked ? "line-through" : "none" }}>{toAngleLabel(row.value)}</span>
@@ -93,6 +94,7 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, s
         sub: dark ? "#999999" : "#888888",
         strike: dark ? "#555" : "#bbb",
         next: dark ? "#22c55e" : "#16a34a",
+        skipped: dark ? "#ef4444" : "#dc2626",
         footerBg: dark ? "#1a1a1a" : "#ffffff",
         footerBorder: dark ? "#2a2a2a" : "#e8e8e8",
         btnBg: dark ? "#2a2a2a" : "#ffffff",
@@ -109,10 +111,19 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, s
                                 {mainSort === "asc" ? "↑" : "↓"}
                             </button>
                         </div>
-                        {sortedMain.map((r, i) => {
+                        {(() => {
                             const nextIdx = sortedMain.findIndex(x => !checkedAngles.has(x.id));
-                            return <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} isNext={i === nextIdx} onToggle={onToggleCheck} t={t} />;
-                        })}
+                            let lastCheckedIdx = -1;
+                            for (let j = sortedMain.length - 1; j >= 0; j--) {
+                                if (checkedAngles.has(sortedMain[j].id)) { lastCheckedIdx = j; break; }
+                            }
+                            return sortedMain.map((r, i) => {
+                                const checked = checkedAngles.has(r.id);
+                                const isNext = i === nextIdx;
+                                const isSkipped = !checked && !isNext && i < lastCheckedIdx;
+                                return <WorkModeRow key={r.id} row={r} checked={checked} isNext={isNext} isSkipped={isSkipped} onToggle={onToggleCheck} t={t} />;
+                            });
+                        })()}
                     </div>
                 )}
                 {showStefan && sortedStefan.length > 0 && (
@@ -123,10 +134,19 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, s
                                 {stefanSort === "asc" ? "↑" : "↓"}
                             </button>
                         </div>
-                        {sortedStefan.map((r, i) => {
+                        {(() => {
                             const nextIdx = sortedStefan.findIndex(x => !checkedAngles.has(x.id));
-                            return <WorkModeRow key={r.id} row={r} checked={checkedAngles.has(r.id)} isNext={i === nextIdx} onToggle={onToggleCheck} t={t} />;
-                        })}
+                            let lastCheckedIdx = -1;
+                            for (let j = sortedStefan.length - 1; j >= 0; j--) {
+                                if (checkedAngles.has(sortedStefan[j].id)) { lastCheckedIdx = j; break; }
+                            }
+                            return sortedStefan.map((r, i) => {
+                                const checked = checkedAngles.has(r.id);
+                                const isNext = i === nextIdx;
+                                const isSkipped = !checked && !isNext && i < lastCheckedIdx;
+                                return <WorkModeRow key={r.id} row={r} checked={checked} isNext={isNext} isSkipped={isSkipped} onToggle={onToggleCheck} t={t} />;
+                            });
+                        })()}
                     </div>
                 )}
                 {sortedMain.length === 0 && sortedStefan.length === 0 && (
