@@ -191,6 +191,15 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
     const [adminView, setAdminView] = useState(initialView === "history" ? "history" : "catalog");
     const [historyRows, setHistoryRows] = useState([]);
     const [historyStatus, setHistoryStatus] = useState("idle");
+    // Mobile: history rows collapse to entity + change; tapping expands full detail.
+    const [expandedHistory, setExpandedHistory] = useState(() => new Set());
+    const toggleHistoryRow = useCallback((id) => {
+        setExpandedHistory((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    }, []);
     const confirmResolverRef = useRef(null);
 
     const [adminHoldSearch, setAdminHoldSearch] = useState("");
@@ -653,6 +662,20 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
           .admin-page-wrapper {
             padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px)) !important;
           }
+
+          /* History rows: collapse to entity + change, tap to expand full detail. */
+          .historyRow {
+            font-size: 14px !important;
+          }
+          .historyRowDesktop {
+            display: none !important;
+          }
+          .historyRowMobile {
+            display: flex !important;
+          }
+          .historyRowDetail {
+            display: flex !important;
+          }
         }
         /* MOBILE ADAPTATION END */
 
@@ -888,28 +911,67 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
                                 </div>
                             ) : (
                                 <div style={{ ...styles.table, gap: 6 }}>
-                                    {historyRows.map((row) => (
-                                        <div
+                                    {historyRows.map((row) => {
+                                        const isOpen = expandedHistory.has(row.id);
+                                        return (
+                                        <button
                                             key={row.id}
+                                            type="button"
+                                            className="historyRow"
+                                            aria-expanded={isOpen}
+                                            onClick={() => toggleHistoryRow(row.id)}
                                             style={{
-                                                display: "grid",
-                                                gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, 1.2fr)",
-                                                gap: 10,
-                                                alignItems: "center",
+                                                display: "block",
+                                                width: "100%",
+                                                textAlign: "left",
                                                 border: `1px solid ${theme.colors.borderLight}`,
                                                 borderRadius: 4,
                                                 padding: "8px 10px",
                                                 fontSize: 12,
                                                 color: theme.colors.textSecondary,
+                                                background: theme.colors.cardBg,
+                                                cursor: "pointer",
                                             }}
                                         >
-                                            <span style={{ color: theme.colors.textTertiary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatHistoryDate(row.createdAt)}</span>
-                                            <span style={{ fontWeight: 600, color: theme.colors.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.username || "—"}</span>
-                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatHistoryAction(row)}</span>
-                                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.entity || "—"}</span>
-                                            <span style={{ color: theme.colors.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatHistoryChange(row)}</span>
-                                        </div>
-                                    ))}
+                                            {/* Desktop: full table row (5 columns) */}
+                                            <div
+                                                className="historyRowDesktop"
+                                                style={{
+                                                    display: "grid",
+                                                    gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, 1.2fr)",
+                                                    gap: 10,
+                                                    alignItems: "center",
+                                                }}
+                                            >
+                                                <span style={{ color: theme.colors.textTertiary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatHistoryDate(row.createdAt)}</span>
+                                                <span style={{ fontWeight: 600, color: theme.colors.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.username || "—"}</span>
+                                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatHistoryAction(row)}</span>
+                                                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.entity || "—"}</span>
+                                                <span style={{ color: theme.colors.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{formatHistoryChange(row)}</span>
+                                            </div>
+
+                                            {/* Mobile: compact summary (entity + change) with a chevron */}
+                                            <div
+                                                className="historyRowMobile"
+                                                style={{ display: "none", alignItems: "center", gap: 8 }}
+                                            >
+                                                <span style={{ fontWeight: 600, color: theme.colors.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{row.entity || "—"}</span>
+                                                <span style={{ color: theme.colors.textPrimary, flex: "0 0 auto" }}>{formatHistoryChange(row)}</span>
+                                                <span aria-hidden="true" style={{ flex: "0 0 auto", color: theme.colors.textTertiary, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</span>
+                                            </div>
+
+                                            {/* Mobile: expanded detail */}
+                                            {isOpen && (
+                                                <div className="historyRowDetail" style={{ display: "none", flexDirection: "column", gap: 4, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${theme.colors.borderLight}` }}>
+                                                    <div><span style={{ color: theme.colors.textTertiary }}>Date: </span>{formatHistoryDate(row.createdAt)}</div>
+                                                    <div><span style={{ color: theme.colors.textTertiary }}>By: </span><span style={{ fontWeight: 600, color: theme.colors.textPrimary }}>{row.username || "—"}</span></div>
+                                                    <div><span style={{ color: theme.colors.textTertiary }}>Action: </span>{formatHistoryAction(row)}</div>
+                                                    <div><span style={{ color: theme.colors.textTertiary }}>Change: </span><span style={{ color: theme.colors.textPrimary }}>{formatHistoryChange(row)}</span></div>
+                                                </div>
+                                            )}
+                                        </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

@@ -291,10 +291,12 @@ describe('App history integration (Phase 3)', () => {
         await waitFor(() => expect(screen.getByText('EXPORT')).toBeTruthy());
 
         fireEvent.click(screen.getByRole('button', { name: 'HISTORY' }));
+        // History rows render a desktop (table) and a mobile (collapsed) variant;
+        // CSS hides one per viewport, so entity/change text appears twice in the DOM.
         await waitFor(() => expect(screen.getByText('Alessandro')).toBeTruthy());
         expect(screen.getByText('Angle changed')).toBeTruthy();
         expect(screen.getAllByText('Austin').length).toBeGreaterThan(0);
-        expect(screen.getByText('30 → 45')).toBeTruthy();
+        expect(screen.getAllByText('30 → 45').length).toBeGreaterThan(0);
         expect(f.mock.calls.some(([url]) => String(url).startsWith('/api/history'))).toBe(true);
     });
 });
