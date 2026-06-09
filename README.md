@@ -2,10 +2,14 @@
 
 > Saw-angle reference tool for production workshops: select products, compare MAIN and STEFAN cut angles, print reference sheets, and manage a shared catalog.
 
+[![Version](https://img.shields.io/badge/version-v1.5-brightgreen?style=flat-square)](CHANGELOG.md)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-avacut.vercel.app-black?style=flat-square&logo=vercel)](https://avacut.vercel.app)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-000?style=flat-square&logo=vercel)](https://vercel.com)
+[![License](https://img.shields.io/badge/license-proprietary-lightgrey?style=flat-square)](#license)
+
+**Current version: v1.5** — see the [changelog](CHANGELOG.md) and [release notes](docs/RELEASE_NOTES.md).
 
 ---
 
@@ -43,6 +47,34 @@ Admins sign in as a named user and edit one shared catalog stored in Neon Postgr
 - **httpOnly HMAC session cookie** for admin sessions
 - **localStorage** only for device-local UI state such as work progress, work theme, and last-seen change id
 - **react-hot-toast** for notifications
+
+---
+
+## Project Structure
+
+```text
+angles-proto/
+├── api/                 # Vercel Functions (auth, state, history) + _lib shared logic
+│   ├── _lib/            # auth, session, db, stateService, rateLimit, schema.sql
+│   ├── login.js  logout.js  session.js
+│   ├── state.js         # GET/PUT shared catalog
+│   └── history.js       # GET audit log
+├── src/                 # React SPA
+│   ├── components/      # shared UI (tables, dialogs, print sheet, icons)
+│   ├── features/        # operator/ and admin/ feature surfaces
+│   ├── domain/          # pure logic: angles, holds, diff, validation, migration
+│   ├── storage/         # client data access: auth, history, import/export, work progress
+│   ├── utils/           # helpers (image handling)
+│   ├── App.jsx  main.jsx
+│   └── contexts/ hooks/ constants/ styles/ assets/
+├── scripts/             # db-setup.mjs, seed-users.mjs
+├── docs/                # ARCHITECTURE, DEVELOPMENT, ROADMAP, RELEASE_NOTES, OPERATIONS
+├── public/              # static assets
+├── vercel.json          # security headers + routing
+└── vite.config.js
+```
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how these fit together.
 
 ---
 
@@ -119,6 +151,23 @@ Open `/#/admin` or click **ADMIN** in the app.
 
 ---
 
+## Screenshots
+
+> **Screenshots are not yet checked into the repo.** Add them under
+> `docs/screenshots/` (create the folder) and reference them here. Suggested
+> shots: operator dual-table view, drawing viewer, print mode, the admin panel,
+> and the change-history view. A live instance is available at
+> [avacut.vercel.app](https://avacut.vercel.app).
+
+<!--
+Example once added:
+
+![Operator view](docs/screenshots/operator.png)
+![Admin panel](docs/screenshots/admin.png)
+-->
+
+---
+
 ## Security
 
 Security headers are configured in [`vercel.json`](vercel.json): CSP, HSTS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
@@ -133,3 +182,64 @@ Known limitations:
 Current docs: [`THREAT_MODEL.md`](THREAT_MODEL.md), [`SECURITY_DEBT.md`](SECURITY_DEBT.md), [`SECURITY_CHECKLIST.md`](SECURITY_CHECKLIST.md).
 
 Historical pre-backend audit: [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md).
+
+Vulnerability reporting: see [`SECURITY.md`](SECURITY.md) — do not open public issues for security problems.
+
+---
+
+## Roadmap
+
+Full detail in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+- **v1.5 — current stable.** Shared Neon backend, server-verified admin
+  sessions, audit log, change notifications, responsive UI polish. All gates
+  green.
+- **v1.6 — stabilization / UX polish / bug fixes.** Smoother `409` recovery
+  (auto-refresh revision), documented setup gotchas, scheduled `login_attempts`
+  pruning.
+- **v2.0 — architectural expansion.** Cover/drawing images to blob storage,
+  self-service password rotation / external identity, real stale-save merge,
+  repo branch protection.
+
+---
+
+## Known Limitations
+
+General product and operational limitations. Security-specific risks and
+trade-offs are covered in [Security](#security) above.
+
+- **Online-only.** Without a reachable backend the app shows a no-connection
+  retry screen; the shared catalog is never the source of truth in the browser.
+- **Manual `409` recovery.** A stale-revision save keeps the draft but requires
+  a manual reload before retrying (planned for v1.6).
+- **Image payload size.** Cover/drawing images are base64 inside the catalog
+  JSON, so runtime payload is dominated by image data (planned for v2.0).
+- **Internal-network deployment.** Angles targets a trusted internal workshop
+  network rather than open public exposure; see [`SECURITY_DEBT.md`](SECURITY_DEBT.md).
+
+---
+
+## Maintainer Notes
+
+- **Quality gates** are `npm run lint`, `npm test`, `npm run build`,
+  `npm run audit` — all enforced in CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))
+  and required before merging. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **Secrets are server-only** (`DATABASE_URL`, `SESSION_SECRET`, seed passwords)
+  and must never use a `VITE_` prefix. Database dumps must stay out of the repo
+  ([`docs/OPERATIONS.md`](docs/OPERATIONS.md)).
+- **Most common real failure is operational**, not code — a missing env var or
+  un-run `db:setup` surfaces as the no-connection screen. Preview deploys lack
+  `SESSION_SECRET` (Production-only).
+- **Mobile CSS is fragile** (`!important` media-query overrides); verify on a
+  narrow viewport after layout changes.
+- Backup/restore: [`docs/OPERATIONS.md`](docs/OPERATIONS.md). Architecture:
+  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Dev setup:
+  [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
+
+---
+
+## License
+
+Proprietary — all rights reserved. This is an internal workshop tool and is not
+licensed for external use, redistribution, or modification without permission
+from the maintainer. See [`LICENSE`](LICENSE).
