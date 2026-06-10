@@ -7,6 +7,7 @@ import { pushBackup } from '../storage/backups.js';
 import { downloadJsonFile, readJsonFile } from '../storage/importExport.js';
 import { loadHistory } from '../storage/history.js';
 import { compressImageFile } from '../utils/image.js';
+import { cryptoRandomId } from '../utils/id.js';
 import { SaveIcon } from './icons.jsx';
 import { ConfirmDialog } from './ConfirmDialog.jsx';
 import { SearchIcon } from './icons.jsx';
@@ -14,14 +15,6 @@ import { Card } from './Card.jsx';
 import { theme, getStyles } from '../styles/theme.js';
 
 const APP_VERSION = "1.5";
-
-function cryptoRandomId() {
-    try {
-        return globalThis.crypto?.randomUUID?.() ?? `id_${Math.random().toString(16).slice(2)}`;
-    } catch {
-        return `id_${Math.random().toString(16).slice(2)}`;
-    }
-}
 
 export function formatLastModified(ms) {
     if (!ms || !Number.isFinite(ms)) return "—";
