@@ -5,6 +5,9 @@ import { loadState, loadLastModified, getAndResetDidRecover } from './storage/db
 import { getSession, login as apiLogin, logout as apiLogout } from './storage/auth.js';
 import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS_KEY } from './storage/workProgress.js';
 import { printImage } from './utils/image.js';
+import { cryptoRandomId } from './utils/id.js';
+import { useHashRoute } from './hooks/useHashRoute.js';
+import { loadLastSeenChangeId, saveLastSeenChangeId } from './storage/changeNotifications.js';
 import { SearchIcon, PrinterIcon, ZoomIcon, PhoneIcon, SortIcon } from './components/icons.jsx';
 import { Card } from './components/Card.jsx';
 import { ConfirmDialog } from './components/ConfirmDialog.jsx';
@@ -34,32 +37,6 @@ import { theme, getStyles } from './styles/theme.js';
  */
 
 const APP_VERSION = "1.5";
-const LS_LAST_SEEN_CHANGE_KEY = "angles_proto_v1_last_seen_change_id";
-
-function loadLastSeenChangeId() {
-    try {
-        const raw = localStorage.getItem(LS_LAST_SEEN_CHANGE_KEY);
-        const n = Number(raw);
-        return Number.isFinite(n) ? n : 0;
-    } catch {
-        return 0;
-    }
-}
-
-function saveLastSeenChangeId(id) {
-    const n = Number(id);
-    if (!Number.isFinite(n)) return;
-    try { localStorage.setItem(LS_LAST_SEEN_CHANGE_KEY, String(n)); } catch {}
-}
-
-
-function cryptoRandomId() {
-    try {
-        return globalThis.crypto?.randomUUID?.() ?? `id_${Math.random().toString(16).slice(2)}`;
-    } catch {
-        return `id_${Math.random().toString(16).slice(2)}`;
-    }
-}
 
 const DEFAULT_ANGLES = [
     { id: cryptoRandomId(), hold: "Austin", value: 28.2, saw: "main" },
@@ -68,17 +45,6 @@ const DEFAULT_ANGLES = [
     { id: cryptoRandomId(), hold: "Avalon SuperFlat", value: 30.0, saw: "stefan" },
     { id: cryptoRandomId(), hold: "Amon", value: 50.0, saw: "stefan" },
 ];
-
-function useHashRoute() {
-    const [hash, setHash] = useState(() => window.location.hash || "#/");
-    useEffect(() => {
-        const onHash = () => setHash(window.location.hash || "#/");
-        window.addEventListener("hashchange", onHash);
-        return () => window.removeEventListener("hashchange", onHash);
-    }, []);
-    return hash.replace("#", "");
-}
-
 
 /* ===================== APP ===================== */
 
