@@ -60,8 +60,8 @@ angles-proto/
 │   ├── state.js         # GET/PUT shared catalog
 │   └── history.js       # GET audit log
 ├── src/                 # React SPA
-│   ├── components/      # shared UI (tables, dialogs, print sheet, icons)
-│   ├── features/        # operator/ and admin/ feature surfaces
+│   ├── components/      # shared UI + AdminPage.jsx (the admin surface lives here today)
+│   ├── features/        # operator/ split out; admin/ is a thin re-export stub for now
 │   ├── domain/          # pure logic: angles, holds, diff, validation, migration
 │   ├── storage/         # client data access: auth, history, import/export, work progress
 │   ├── utils/           # helpers (image handling)
@@ -154,10 +154,17 @@ Open `/#/admin` or click **ADMIN** in the app.
 ## Screenshots
 
 > **Screenshots are not yet checked into the repo.** Add them under
-> `docs/screenshots/` (create the folder) and reference them here. Suggested
-> shots: operator dual-table view, drawing viewer, print mode, the admin panel,
-> and the change-history view. A live instance is available at
-> [avacut.vercel.app](https://avacut.vercel.app).
+> `docs/screenshots/` (create the folder) and reference them here. A live
+> instance is available at [avacut.vercel.app](https://avacut.vercel.app).
+
+Recommended screenshots to add:
+
+- [ ] Operator dual-table view (MAIN + STEFAN)
+- [ ] Drawing viewer with zoom
+- [ ] A4 print mode
+- [ ] Admin catalog editing
+- [ ] Change history view
+- [ ] Phone work mode with green/red row indicators
 
 <!--
 Example once added:

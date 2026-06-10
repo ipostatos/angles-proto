@@ -30,9 +30,9 @@ Neon Postgres   users · app_state · change_log · login_attempts
 
 | Folder | Responsibility |
 |---|---|
-| `components/` | Shared presentational components (tables, dialogs, print sheet, icons, error boundary). |
-| `features/operator/` | Operator-facing UI: hold selector, drawing viewer. |
-| `features/admin/` | Admin panel surface. |
+| `components/` | Shared presentational components (tables, dialogs, print sheet, icons, error boundary) **plus `AdminPage.jsx`** — the admin surface currently lives here. |
+| `features/operator/` | Operator-facing UI partially split out here: hold selector, drawing viewer. |
+| `features/admin/` | Thin re-export stub today (`index.js` re-exports `AdminPage` from `components/`); a fuller split is deferred to a later mobile-first redesign. |
 | `domain/` | Pure logic: angle computation, holds, diffing, validation, import migration. Heavily unit-tested. |
 | `storage/` | Client-side data access: auth, history, import/export, work progress, db client. |
 | `utils/` | Helpers (e.g. image handling). |
