@@ -7,12 +7,13 @@ import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS
 import { printImage } from './utils/image.js';
 import { useHashRoute } from './hooks/useHashRoute.js';
 import { loadLastSeenChangeId, saveLastSeenChangeId } from './storage/changeNotifications.js';
-import { SearchIcon, PrinterIcon, ZoomIcon, PhoneIcon } from './components/icons.jsx';
+import { SearchIcon, PrinterIcon, PhoneIcon } from './components/icons.jsx';
 import { Card } from './components/Card.jsx';
 import { ConfirmDialog } from './components/ConfirmDialog.jsx';
 import { PasswordInput } from './components/PasswordInput.jsx';
 import { PrintModeSelect } from './components/PrintModeSelect.jsx';
 import { AngleTableCard } from './features/operator/AngleTableCard.jsx';
+import { DrawingViewerCard } from './features/operator/DrawingViewerCard.jsx';
 import { PrintTableSection, PRINT_MAX_COLUMNS_ALL, PRINT_MAX_COLUMNS_SINGLE } from './components/PrintSheet.jsx';
 import { WorkModeOverlay } from './components/WorkModeOverlay.jsx';
 import { AdminPage, formatLastModified } from './components/AdminPage.jsx';
@@ -1079,39 +1080,13 @@ export default function App() {
                 />
 
                 {/* Viewer */}
-                <Card data-print-hide style={styles.card}>
-                    <div style={styles.viewerWrap}>
-                        {viewerSrc ? (
-                            <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
-                                <img src={viewerSrc} alt="drawing" style={styles.viewerImg} draggable={false} />
-                                <div style={styles.viewerTools}>
-                                    <button
-                                        type="button"
-                                        onClick={() => printImage(viewerSrc)}
-                                        style={styles.viewerToolBtn}
-                                        className="viewerToolBtn"
-                                        title="Print drawing"
-                                    >
-                                        <PrinterIcon size={20} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setZoomedImage(viewerSrc)}
-                                        style={styles.viewerToolBtn}
-                                        className="viewerToolBtn"
-                                        title="Zoom image"
-                                    >
-                                        <ZoomIcon />
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div style={styles.viewerEmpty}>
-                                <div style={{ fontSize: 12, color: theme.colors.textMuted }}>no drawing uploaded</div>
-                            </div>
-                        )}
-                    </div>
-                </Card>
+                <DrawingViewerCard
+                    src={viewerSrc}
+                    onPrint={printImage}
+                    onZoom={setZoomedImage}
+                    styles={styles}
+                    theme={theme}
+                />
             </div>
 
             {/* Print-only layout: headers on top, rows flow into side columns */}
