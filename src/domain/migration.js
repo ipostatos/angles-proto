@@ -1,5 +1,7 @@
 // Migration and sanitization logic extracted from App.jsx
 
+import { cryptoRandomId } from '../utils/id.js';
+
 function normalizeHoldName(s) {
     return String(s || '').trim().replace(/\s+/g, ' ');
 }
@@ -25,14 +27,6 @@ export function sanitizeHoldList(holds) {
 
 export function isSafeRasterDataUrl(s) {
     return typeof s === 'string' && /^data:image\/(png|jpe?g|webp|gif);/i.test(s);
-}
-
-function cryptoRandomId() {
-    try {
-        return globalThis.crypto?.randomUUID?.() ?? `id_${Math.random().toString(16).slice(2)}`;
-    } catch {
-        return `id_${Math.random().toString(16).slice(2)}`;
-    }
 }
 
 export const LS_VERSION = 1;
