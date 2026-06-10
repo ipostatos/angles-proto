@@ -112,10 +112,15 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, s
                             </button>
                         </div>
                         {(() => {
-                            const nextIdx = sortedMain.findIndex(x => !checkedAngles.has(x.id));
                             let lastCheckedIdx = -1;
                             for (let j = sortedMain.length - 1; j >= 0; j--) {
                                 if (checkedAngles.has(sortedMain[j].id)) { lastCheckedIdx = j; break; }
+                            }
+                            // Next = first unchecked AFTER the work front (last checked row),
+                            // so it never lands on a row that was already jumped past.
+                            let nextIdx = -1;
+                            for (let j = lastCheckedIdx + 1; j < sortedMain.length; j++) {
+                                if (!checkedAngles.has(sortedMain[j].id)) { nextIdx = j; break; }
                             }
                             return sortedMain.map((r, i) => {
                                 const checked = checkedAngles.has(r.id);
@@ -135,10 +140,15 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, s
                             </button>
                         </div>
                         {(() => {
-                            const nextIdx = sortedStefan.findIndex(x => !checkedAngles.has(x.id));
                             let lastCheckedIdx = -1;
                             for (let j = sortedStefan.length - 1; j >= 0; j--) {
                                 if (checkedAngles.has(sortedStefan[j].id)) { lastCheckedIdx = j; break; }
+                            }
+                            // Next = first unchecked AFTER the work front (last checked row),
+                            // so it never lands on a row that was already jumped past.
+                            let nextIdx = -1;
+                            for (let j = lastCheckedIdx + 1; j < sortedStefan.length; j++) {
+                                if (!checkedAngles.has(sortedStefan[j].id)) { nextIdx = j; break; }
                             }
                             return sortedStefan.map((r, i) => {
                                 const checked = checkedAngles.has(r.id);
