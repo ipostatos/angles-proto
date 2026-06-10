@@ -7,12 +7,12 @@ import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS
 import { printImage } from './utils/image.js';
 import { useHashRoute } from './hooks/useHashRoute.js';
 import { loadLastSeenChangeId, saveLastSeenChangeId } from './storage/changeNotifications.js';
-import { SearchIcon, PrinterIcon, ZoomIcon, PhoneIcon, SortIcon } from './components/icons.jsx';
+import { SearchIcon, PrinterIcon, ZoomIcon, PhoneIcon } from './components/icons.jsx';
 import { Card } from './components/Card.jsx';
 import { ConfirmDialog } from './components/ConfirmDialog.jsx';
 import { PasswordInput } from './components/PasswordInput.jsx';
 import { PrintModeSelect } from './components/PrintModeSelect.jsx';
-import { AngleTable } from './components/AngleTable.jsx';
+import { AngleTableCard } from './features/operator/AngleTableCard.jsx';
 import { PrintTableSection, PRINT_MAX_COLUMNS_ALL, PRINT_MAX_COLUMNS_SINGLE } from './components/PrintSheet.jsx';
 import { WorkModeOverlay } from './components/WorkModeOverlay.jsx';
 import { AdminPage, formatLastModified } from './components/AdminPage.jsx';
@@ -1059,48 +1059,24 @@ export default function App() {
                 </Card>
 
                 {/* Main table */}
-                <Card style={styles.card} className="angleTableCard">
-                    <div style={styles.tableBody}>
-                        <div style={styles.tableHeader} className="print-header tableHeader">
-                            <div style={styles.tableTitleCenter} className="tableTitleCenter">MAIN</div>
-                            <button
-                                type="button"
-                                onClick={cycleSortMain}
-                                onMouseDown={(e) => e.preventDefault()}
-                                style={styles.sortButton}
-                                className="sortButton"
-                                title="Sort by angle"
-                                aria-label="Sort MAIN table"
-                                data-print-hide
-                            >
-                                <SortIcon direction={mainSort} />
-                            </button>
-                        </div>
-                        <AngleTable styles={styles} rows={selectedAngles.main} onPick={setActiveAngleId} />
-                    </div>
-                </Card>
+                <AngleTableCard
+                    title="MAIN"
+                    rows={selectedAngles.main}
+                    sortDirection={mainSort}
+                    onCycleSort={cycleSortMain}
+                    onPick={setActiveAngleId}
+                    styles={styles}
+                />
 
                 {/* Stefan table */}
-                <Card style={styles.card} className="angleTableCard">
-                    <div style={styles.tableBody}>
-                        <div style={styles.tableHeader} className="print-header tableHeader">
-                            <div style={styles.tableTitleCenter} className="tableTitleCenter">STEFAN</div>
-                            <button
-                                type="button"
-                                onClick={cycleSortStefan}
-                                onMouseDown={(e) => e.preventDefault()}
-                                style={styles.sortButton}
-                                className="sortButton"
-                                title="Sort by angle"
-                                aria-label="Sort STEFAN table"
-                                data-print-hide
-                            >
-                                <SortIcon direction={stefanSort} />
-                            </button>
-                        </div>
-                        <AngleTable styles={styles} rows={selectedAngles.stefan} onPick={setActiveAngleId} />
-                    </div>
-                </Card>
+                <AngleTableCard
+                    title="STEFAN"
+                    rows={selectedAngles.stefan}
+                    sortDirection={stefanSort}
+                    onCycleSort={cycleSortStefan}
+                    onPick={setActiveAngleId}
+                    styles={styles}
+                />
 
                 {/* Viewer */}
                 <Card data-print-hide style={styles.card}>
