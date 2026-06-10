@@ -5,7 +5,6 @@ import { loadState, loadLastModified, getAndResetDidRecover } from './storage/db
 import { getSession, login as apiLogin, logout as apiLogout } from './storage/auth.js';
 import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS_KEY } from './storage/workProgress.js';
 import { printImage } from './utils/image.js';
-import { cryptoRandomId } from './utils/id.js';
 import { useHashRoute } from './hooks/useHashRoute.js';
 import { loadLastSeenChangeId, saveLastSeenChangeId } from './storage/changeNotifications.js';
 import { SearchIcon, PrinterIcon, ZoomIcon, PhoneIcon, SortIcon } from './components/icons.jsx';
@@ -35,16 +34,6 @@ import { theme, getStyles } from './styles/theme.js';
  * - iOS focus fix (setTimeout instead of rAF)
  * - Admin: SHA-256 hash stored in localStorage (no hardcoded password after first login)
  */
-
-const APP_VERSION = "1.5";
-
-const DEFAULT_ANGLES = [
-    { id: cryptoRandomId(), hold: "Austin", value: 28.2, saw: "main" },
-    { id: cryptoRandomId(), hold: "Avalon Flat", value: 65.0, saw: "main" },
-    { id: cryptoRandomId(), hold: "Austin", value: 65.3, saw: "main" },
-    { id: cryptoRandomId(), hold: "Avalon SuperFlat", value: 30.0, saw: "stefan" },
-    { id: cryptoRandomId(), hold: "Amon", value: 50.0, saw: "stefan" },
-];
 
 /* ===================== APP ===================== */
 
