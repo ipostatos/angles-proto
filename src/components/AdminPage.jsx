@@ -639,7 +639,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
             right: 0 !important;
             z-index: 100 !important;
             background: #ffffff !important;
-            padding: 10px 12px env(safe-area-inset-bottom, 0px) !important;
+            padding: 10px 12px max(16px, env(safe-area-inset-bottom, 0px)) !important;
             gap: 8px !important;
           }
           /* Remove separator line from footerRow inside adminFooter */
@@ -653,7 +653,7 @@ export function AdminPage({ data, setData, serverRevision, onCatalogSaved, initi
             line-height: 1.2 !important;
           }
           .admin-page-wrapper {
-            padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px)) !important;
+            padding-bottom: calc(220px + max(16px, env(safe-area-inset-bottom, 0px))) !important;
           }
 
           /* History rows: collapse to entity + change, tap to expand full detail. */
