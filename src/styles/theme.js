@@ -321,15 +321,13 @@ export const getStyles = (theme) => ({
         padding: "2px 0", /* Reduced from "6px 0" */
         userSelect: "none",
     },
-    // UI-3b: selected/checked hold row. Background + name weight only — no
-    // padding/border (those are overridden by mobile !important rules) and no
-    // layout change. The sidebar Card is data-print-hide, so this never prints.
-    holdRowSelected: {
-        background: theme.colors.activeBg,
-        borderRadius: theme.radius.sm,
-    },
+    // UI-3b (softened): selected/checked hold row. The native checkbox is the
+    // primary selected indicator; the row stays quiet — no gray pill background,
+    // just a slightly heavier name. No padding/border (mobile !important rules
+    // own those) and no layout change. Sidebar Card is data-print-hide.
+    holdRowSelected: {},
     holdNameSelected: {
-        fontWeight: 600,
+        fontWeight: 500,
     },
 
     holdRowBtn: {
@@ -584,12 +582,12 @@ export const getStyles = (theme) => ({
             color: theme.colors.textLight,
         },
     },
-    // Meaningful "current row" style (was previously identical to default, i.e.
-    // invisible). Still unused by AngleTable until UI-2b wires activeAngleId.
+    // Quiet "currently selected row driving the viewer" marker (applied by
+    // AngleTable when r.id === activeAngleId): a soft, translucent left rail
+    // only — no heavy black border, no full outline, no background fill. Keeps
+    // the same light border as every other row.
     tableRowActive: {
-        borderColor: theme.colors.borderDark,
-        background: theme.colors.activeBg,
-        boxShadow: `inset 3px 0 0 ${theme.colors.textPrimary}`,
+        boxShadow: "inset 3px 0 0 rgba(17, 17, 17, 0.28)",
         outline: "none",
     },
 
