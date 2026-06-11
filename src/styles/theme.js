@@ -321,6 +321,16 @@ export const getStyles = (theme) => ({
         padding: "2px 0", /* Reduced from "6px 0" */
         userSelect: "none",
     },
+    // UI-3b: selected/checked hold row. Background + name weight only — no
+    // padding/border (those are overridden by mobile !important rules) and no
+    // layout change. The sidebar Card is data-print-hide, so this never prints.
+    holdRowSelected: {
+        background: theme.colors.activeBg,
+        borderRadius: theme.radius.sm,
+    },
+    holdNameSelected: {
+        fontWeight: 600,
+    },
 
     holdRowBtn: {
         width: "100%",

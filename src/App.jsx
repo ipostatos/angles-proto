@@ -968,18 +968,30 @@ export default function App() {
                         )}
 
                         <div style={styles.holdsList} className="holdsList">
-                            {visibleHolds.map((h) => (
-                                <label key={h.id} style={styles.holdRow} className="holdRow">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedHolds.has(h.id)}
-                                        onChange={() => toggleHold(h.id)}
-                                        style={styles.checkbox}
-                                        className="holdCheckbox"
-                                    />
-                                    <span style={styles.holdName} className="holdName">{h.name}</span>
-                                </label>
-                            ))}
+                            {visibleHolds.map((h) => {
+                                const isSelected = selectedHolds.has(h.id);
+                                return (
+                                    <label
+                                        key={h.id}
+                                        style={isSelected ? { ...styles.holdRow, ...styles.holdRowSelected } : styles.holdRow}
+                                        className="holdRow"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => toggleHold(h.id)}
+                                            style={styles.checkbox}
+                                            className="holdCheckbox"
+                                        />
+                                        <span
+                                            style={isSelected ? { ...styles.holdName, ...styles.holdNameSelected } : styles.holdName}
+                                            className="holdName"
+                                        >
+                                            {h.name}
+                                        </span>
+                                    </label>
+                                );
+                            })}
                         </div>
 
                         <div style={styles.footerRow} className="footerRow">
