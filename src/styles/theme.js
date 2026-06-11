@@ -24,6 +24,45 @@ export const theme = {
         viewerEmptyBorder: '#e0e0e0',
         adminPageBg: '#f5f7fa',
     },
+    // --- UI-1 design tokens (typography / radius / shadow / spacing) ---
+    // Single modern system sans stack — no web-font download (offline-safe for
+    // the workshop). `fonts.mono` is available for technical/numeric contexts.
+    fonts: {
+        sans: "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
+    },
+    // Existing radii in the app are 4 / 6 / 8 / 10; keep the same scale, named.
+    radius: {
+        sm: 4,
+        md: 6,
+        lg: 8,
+        xl: 10,
+        pill: '50%',
+    },
+    // Subtle, minimal — matches the existing inline shadows already in use.
+    shadow: {
+        none: 'none',
+        sm: '0 2px 5px rgba(0,0,0,0.1)',
+        md: '0 6px 24px rgba(0,0,0,0.08)',
+    },
+    // 4px base spacing scale (existing paddings already align to it).
+    space: {
+        xs: 4,
+        sm: 8,
+        md: 12,
+        lg: 16,
+        xl: 24,
+    },
+    // Semantic tones. `success` names the existing saved-work-card colors
+    // (UI-3a) — same values, just consolidated out of an inline block.
+    tones: {
+        success: {
+            bg: '#f0fdf4',
+            border: '#bbf7d0',
+            text: '#166534',
+            solid: '#166534',
+        },
+    },
 };
 
 export const getStyles = (theme) => ({
@@ -36,6 +75,8 @@ export const getStyles = (theme) => ({
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
+        fontFamily: theme.fonts.sans,
+        color: theme.colors.textPrimary,
     },
     appHeader: {
         width: "100%",
@@ -89,14 +130,14 @@ export const getStyles = (theme) => ({
     viewerToolBtn: {
         width: 36,
         height: 36,
-        borderRadius: "50%",
+        borderRadius: theme.radius.pill,
         background: theme.colors.cardBg,
         border: `1px solid ${theme.colors.borderMedium}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer",
-        boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+        boxShadow: theme.shadow.sm,
         color: theme.colors.textPrimary,
         padding: 0,
     },
@@ -134,7 +175,7 @@ export const getStyles = (theme) => ({
         maxWidth: 360,
         background: theme.colors.cardBg,
         border: `1px solid ${theme.colors.border}`,
-        borderRadius: 10,
+        borderRadius: theme.radius.xl,
         padding: 24,
         display: "flex",
         flexDirection: "column",
@@ -168,6 +209,8 @@ export const getStyles = (theme) => ({
         background: theme.colors.adminPageBg,
         padding: "clamp(12px, 3vw, 24px)",
         boxSizing: "border-box",
+        fontFamily: theme.fonts.sans,
+        color: theme.colors.textPrimary,
     },
     grid: {
         display: "grid",
@@ -193,7 +236,7 @@ export const getStyles = (theme) => ({
     card: {
         background: theme.colors.cardBg,
         border: `1px solid ${theme.colors.border}`,
-        borderRadius: 6,
+        borderRadius: theme.radius.md,
         overflow: "hidden",
         minHeight: 0,
     },
@@ -206,6 +249,35 @@ export const getStyles = (theme) => ({
         boxSizing: "border-box",
     },
 
+    // UI-3a: saved-work card, consolidated from a hardcoded inline block in
+    // App.jsx. Values are identical to the previous literals (via tones.success).
+    savedWorkCard: {
+        background: theme.tones.success.bg,
+        border: `1px solid ${theme.tones.success.border}`,
+        borderRadius: theme.radius.md,
+        padding: "8px 10px",
+        marginBottom: 8,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+    },
+    savedWorkText: {
+        fontSize: 11,
+        color: theme.tones.success.text,
+        lineHeight: 1.4,
+    },
+    savedWorkActions: {
+        display: "flex",
+        gap: 6,
+        flexShrink: 0,
+    },
+    savedWorkResumeBtn: {
+        background: theme.tones.success.solid,
+        color: "#fff",
+        border: "none",
+    },
+
     searchWrap: { paddingBottom: 12 },
     searchPill: {
         display: "flex",
@@ -213,9 +285,9 @@ export const getStyles = (theme) => ({
         gap: 10,
         background: theme.colors.inputBg,
         border: `1px solid ${theme.colors.borderMedium}`,
-        borderRadius: 6,
+        borderRadius: theme.radius.md,
         padding: "8px 10px",
-        boxShadow: "none",
+        boxShadow: theme.shadow.none,
         cursor: "text",
     },
     searchInput: {
@@ -248,6 +320,16 @@ export const getStyles = (theme) => ({
         gap: 6,
         padding: "2px 0", /* Reduced from "6px 0" */
         userSelect: "none",
+    },
+    // UI-3b: selected/checked hold row. Background + name weight only — no
+    // padding/border (those are overridden by mobile !important rules) and no
+    // layout change. The sidebar Card is data-print-hide, so this never prints.
+    holdRowSelected: {
+        background: theme.colors.activeBg,
+        borderRadius: theme.radius.sm,
+    },
+    holdNameSelected: {
+        fontWeight: 600,
     },
 
     holdRowBtn: {
@@ -462,20 +544,52 @@ export const getStyles = (theme) => ({
         gap: 4, /* Reduced from 10 */
         alignItems: "center",
         border: `1px solid ${theme.colors.borderLight}`,
-        borderRadius: 4,
+        borderRadius: theme.radius.sm,
         padding: "3px 6px", /* Reduced from "8px 10px" */
         background: theme.colors.cardBg,
         cursor: "pointer",
         textAlign: "left",
         outline: "none",
-        boxShadow: "none",
+        boxShadow: theme.shadow.none,
         transition: "none",
         WebkitTapHighlightColor: "transparent",
     },
+    // UI-2a: named operator angle-row state tokens. Definitions only — these are
+    // the design-system vocabulary for the row states; nothing in AngleTable
+    // applies hover/active/done/muted yet (that wiring is UI-2b). Density,
+    // sizing, grid, and padding from `tableRow` are intentionally unchanged.
+    rowStates: {
+        // current/active row: subtle accent left border + faint tint.
+        active: {
+            borderColor: theme.colors.borderDark,
+            background: theme.colors.activeBg,
+            boxShadow: `inset 3px 0 0 ${theme.colors.textPrimary}`,
+        },
+        // pointer hover (applied via CSS/JS in a later slice, not here).
+        hover: {
+            borderColor: theme.colors.borderMedium,
+            background: theme.colors.hoverBg,
+        },
+        // completed in work mode — defined for vocabulary parity; work-mode
+        // surface owns its own rendering and is not touched here.
+        done: {
+            borderColor: theme.colors.borderLight,
+            background: theme.colors.cardBg,
+            color: theme.colors.textMuted,
+        },
+        // muted/disabled rows.
+        muted: {
+            borderColor: theme.colors.borderLight,
+            background: theme.colors.cardBg,
+            color: theme.colors.textLight,
+        },
+    },
+    // Meaningful "current row" style (was previously identical to default, i.e.
+    // invisible). Still unused by AngleTable until UI-2b wires activeAngleId.
     tableRowActive: {
-        borderColor: theme.colors.borderLight,
-        background: theme.colors.cardBg,
-        boxShadow: "none",
+        borderColor: theme.colors.borderDark,
+        background: theme.colors.activeBg,
+        boxShadow: `inset 3px 0 0 ${theme.colors.textPrimary}`,
         outline: "none",
     },
 
@@ -511,6 +625,8 @@ export const getStyles = (theme) => ({
         fontWeight: 700,
         color: theme.colors.textPrimary,
         fontSize: "clamp(13px, 2.2vw, 15px)",
+        fontVariantNumeric: "tabular-nums",
+        fontFeatureSettings: '"tnum" 1',
     },
     nameCell: {
         color: theme.colors.textSecondary,
