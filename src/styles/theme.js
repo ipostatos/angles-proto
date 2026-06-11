@@ -53,6 +53,16 @@ export const theme = {
         lg: 16,
         xl: 24,
     },
+    // Semantic tones. `success` names the existing saved-work-card colors
+    // (UI-3a) — same values, just consolidated out of an inline block.
+    tones: {
+        success: {
+            bg: '#f0fdf4',
+            border: '#bbf7d0',
+            text: '#166534',
+            solid: '#166534',
+        },
+    },
 };
 
 export const getStyles = (theme) => ({
@@ -237,6 +247,35 @@ export const getStyles = (theme) => ({
         height: "100%",
         minHeight: 0,
         boxSizing: "border-box",
+    },
+
+    // UI-3a: saved-work card, consolidated from a hardcoded inline block in
+    // App.jsx. Values are identical to the previous literals (via tones.success).
+    savedWorkCard: {
+        background: theme.tones.success.bg,
+        border: `1px solid ${theme.tones.success.border}`,
+        borderRadius: theme.radius.md,
+        padding: "8px 10px",
+        marginBottom: 8,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 8,
+    },
+    savedWorkText: {
+        fontSize: 11,
+        color: theme.tones.success.text,
+        lineHeight: 1.4,
+    },
+    savedWorkActions: {
+        display: "flex",
+        gap: 6,
+        flexShrink: 0,
+    },
+    savedWorkResumeBtn: {
+        background: theme.tones.success.solid,
+        color: "#fff",
+        border: "none",
     },
 
     searchWrap: { paddingBottom: 12 },

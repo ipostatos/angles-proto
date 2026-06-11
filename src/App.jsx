@@ -955,13 +955,13 @@ export default function App() {
                         </div>
 
                         {savedProgress && (
-                            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, padding: "8px 10px", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                                <div style={{ fontSize: 11, color: "#166534", lineHeight: 1.4 }}>
+                            <div style={styles.savedWorkCard}>
+                                <div style={styles.savedWorkText}>
                                     <strong>Saved work</strong><br />
                                     {formatLastModified(savedProgress.savedAt)}
                                 </div>
-                                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                                    <button style={{ ...styles.btnSmallGhost, background: "#166534", color: "#fff", border: "none" }} onClick={resumeProgress}>Resume</button>
+                                <div style={styles.savedWorkActions}>
+                                    <button style={{ ...styles.btnSmallGhost, ...styles.savedWorkResumeBtn }} onClick={resumeProgress}>Resume</button>
                                     <button style={{ ...styles.btnSmallGhost }} onClick={() => setShowDiscardProgressConfirm(true)}>✕</button>
                                 </div>
                             </div>
