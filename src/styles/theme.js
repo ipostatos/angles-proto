@@ -24,6 +24,35 @@ export const theme = {
         viewerEmptyBorder: '#e0e0e0',
         adminPageBg: '#f5f7fa',
     },
+    // --- UI-1 design tokens (typography / radius / shadow / spacing) ---
+    // Single modern system sans stack — no web-font download (offline-safe for
+    // the workshop). `fonts.mono` is available for technical/numeric contexts.
+    fonts: {
+        sans: "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
+    },
+    // Existing radii in the app are 4 / 6 / 8 / 10; keep the same scale, named.
+    radius: {
+        sm: 4,
+        md: 6,
+        lg: 8,
+        xl: 10,
+        pill: '50%',
+    },
+    // Subtle, minimal — matches the existing inline shadows already in use.
+    shadow: {
+        none: 'none',
+        sm: '0 2px 5px rgba(0,0,0,0.1)',
+        md: '0 6px 24px rgba(0,0,0,0.08)',
+    },
+    // 4px base spacing scale (existing paddings already align to it).
+    space: {
+        xs: 4,
+        sm: 8,
+        md: 12,
+        lg: 16,
+        xl: 24,
+    },
 };
 
 export const getStyles = (theme) => ({
@@ -36,6 +65,8 @@ export const getStyles = (theme) => ({
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
+        fontFamily: theme.fonts.sans,
+        color: theme.colors.textPrimary,
     },
     appHeader: {
         width: "100%",
@@ -89,14 +120,14 @@ export const getStyles = (theme) => ({
     viewerToolBtn: {
         width: 36,
         height: 36,
-        borderRadius: "50%",
+        borderRadius: theme.radius.pill,
         background: theme.colors.cardBg,
         border: `1px solid ${theme.colors.borderMedium}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         cursor: "pointer",
-        boxShadow: "0 2px 5px rgba(0,0,0,0.1)",
+        boxShadow: theme.shadow.sm,
         color: theme.colors.textPrimary,
         padding: 0,
     },
@@ -134,7 +165,7 @@ export const getStyles = (theme) => ({
         maxWidth: 360,
         background: theme.colors.cardBg,
         border: `1px solid ${theme.colors.border}`,
-        borderRadius: 10,
+        borderRadius: theme.radius.xl,
         padding: 24,
         display: "flex",
         flexDirection: "column",
@@ -168,6 +199,8 @@ export const getStyles = (theme) => ({
         background: theme.colors.adminPageBg,
         padding: "clamp(12px, 3vw, 24px)",
         boxSizing: "border-box",
+        fontFamily: theme.fonts.sans,
+        color: theme.colors.textPrimary,
     },
     grid: {
         display: "grid",
@@ -193,7 +226,7 @@ export const getStyles = (theme) => ({
     card: {
         background: theme.colors.cardBg,
         border: `1px solid ${theme.colors.border}`,
-        borderRadius: 6,
+        borderRadius: theme.radius.md,
         overflow: "hidden",
         minHeight: 0,
     },
@@ -213,9 +246,9 @@ export const getStyles = (theme) => ({
         gap: 10,
         background: theme.colors.inputBg,
         border: `1px solid ${theme.colors.borderMedium}`,
-        borderRadius: 6,
+        borderRadius: theme.radius.md,
         padding: "8px 10px",
-        boxShadow: "none",
+        boxShadow: theme.shadow.none,
         cursor: "text",
     },
     searchInput: {
@@ -511,6 +544,8 @@ export const getStyles = (theme) => ({
         fontWeight: 700,
         color: theme.colors.textPrimary,
         fontSize: "clamp(13px, 2.2vw, 15px)",
+        fontVariantNumeric: "tabular-nums",
+        fontFeatureSettings: '"tnum" 1',
     },
     nameCell: {
         color: theme.colors.textSecondary,
