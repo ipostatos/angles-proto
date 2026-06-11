@@ -102,7 +102,7 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, s
     };
     return (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: t.bg, display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
-            <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 90px" }}>
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px 12px 106px" }}>
                 {showMain && sortedMain.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "relative", marginBottom: 8 }}>
@@ -165,7 +165,7 @@ function WorkModeOverlay({ main, stefan, checkedAngles, onToggleCheck, onExit, s
             </div>
             <div style={{
                 position: "fixed", bottom: 0, left: 0, right: 0,
-                padding: "10px 12px env(safe-area-inset-bottom, 0px)",
+                padding: "10px 12px max(16px, env(safe-area-inset-bottom, 0px))",
                 background: t.footerBg, borderTop: `1px solid ${t.footerBorder}`,
                 display: "flex", gap: 8,
             }}>
