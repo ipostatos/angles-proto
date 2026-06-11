@@ -667,14 +667,14 @@ export default function App() {
              flex-wrap: nowrap !important;
              gap: 8px !important;
              margin-top: 0 !important;
-             padding: 10px 12px env(safe-area-inset-bottom, 0px) !important;
+             padding: 10px 12px max(16px, env(safe-area-inset-bottom, 0px)) !important;
              background: #ffffff !important;
              border-top: 1px solid #e8e8e8 !important;
              align-items: center !important;
           }
           /* Compensate for fixed footer height */
           .app-page {
-             padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+             padding-bottom: calc(64px + max(16px, env(safe-area-inset-bottom, 0px))) !important;
           }
           .footerBtn {
              height: 44px !important;
