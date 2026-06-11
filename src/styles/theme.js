@@ -495,20 +495,52 @@ export const getStyles = (theme) => ({
         gap: 4, /* Reduced from 10 */
         alignItems: "center",
         border: `1px solid ${theme.colors.borderLight}`,
-        borderRadius: 4,
+        borderRadius: theme.radius.sm,
         padding: "3px 6px", /* Reduced from "8px 10px" */
         background: theme.colors.cardBg,
         cursor: "pointer",
         textAlign: "left",
         outline: "none",
-        boxShadow: "none",
+        boxShadow: theme.shadow.none,
         transition: "none",
         WebkitTapHighlightColor: "transparent",
     },
+    // UI-2a: named operator angle-row state tokens. Definitions only — these are
+    // the design-system vocabulary for the row states; nothing in AngleTable
+    // applies hover/active/done/muted yet (that wiring is UI-2b). Density,
+    // sizing, grid, and padding from `tableRow` are intentionally unchanged.
+    rowStates: {
+        // current/active row: subtle accent left border + faint tint.
+        active: {
+            borderColor: theme.colors.borderDark,
+            background: theme.colors.activeBg,
+            boxShadow: `inset 3px 0 0 ${theme.colors.textPrimary}`,
+        },
+        // pointer hover (applied via CSS/JS in a later slice, not here).
+        hover: {
+            borderColor: theme.colors.borderMedium,
+            background: theme.colors.hoverBg,
+        },
+        // completed in work mode — defined for vocabulary parity; work-mode
+        // surface owns its own rendering and is not touched here.
+        done: {
+            borderColor: theme.colors.borderLight,
+            background: theme.colors.cardBg,
+            color: theme.colors.textMuted,
+        },
+        // muted/disabled rows.
+        muted: {
+            borderColor: theme.colors.borderLight,
+            background: theme.colors.cardBg,
+            color: theme.colors.textLight,
+        },
+    },
+    // Meaningful "current row" style (was previously identical to default, i.e.
+    // invisible). Still unused by AngleTable until UI-2b wires activeAngleId.
     tableRowActive: {
-        borderColor: theme.colors.borderLight,
-        background: theme.colors.cardBg,
-        boxShadow: "none",
+        borderColor: theme.colors.borderDark,
+        background: theme.colors.activeBg,
+        boxShadow: `inset 3px 0 0 ${theme.colors.textPrimary}`,
         outline: "none",
     },
 
