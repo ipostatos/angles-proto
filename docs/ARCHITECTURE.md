@@ -31,12 +31,13 @@ Neon Postgres   users · app_state · change_log · login_attempts
 | Folder | Responsibility |
 |---|---|
 | `components/` | Shared presentational components (tables, dialogs, print sheet, icons, error boundary) **plus `AdminPage.jsx`** — the admin surface currently lives here. |
-| `features/operator/` | Operator-facing UI partially split out here: hold selector, drawing viewer. |
+| `features/operator/` | Operator-facing UI extracted into presentational cards: `AngleTableCard` (MAIN/STEFAN tables) and `DrawingViewerCard`. |
 | `features/admin/` | Thin re-export stub today (`index.js` re-exports `AdminPage` from `components/`); a fuller split is deferred to a later mobile-first redesign. |
 | `domain/` | Pure logic: angle computation, holds, diffing, validation, import migration. Heavily unit-tested. |
 | `storage/` | Client-side data access: auth, history, import/export, work progress, db client. |
 | `utils/` | Helpers (e.g. image handling). |
-| `contexts/`, `hooks/`, `constants/`, `styles/`, `assets/` | React context, hooks, constants, CSS, static assets. |
+| `hooks/`, `styles/` | Populated: `hooks/` holds React hooks (e.g. `useHashRoute`); `styles/` holds the design tokens / inline styles (`theme.js`). |
+| `contexts/`, `constants/`, `assets/` | Currently empty placeholder directories reserved for future use. |
 
 `App.jsx` composes these; `main.jsx` is the entry point. Device-local state
 (work-mode progress, theme, last-seen change id) lives in `localStorage` by
