@@ -7,7 +7,7 @@ import { SortIcon } from '../../components/icons.jsx';
 // inline table blocks in App.jsx during v1.6 A2.1; markup, class names,
 // data-print-hide, and aria-label behavior are preserved. All state, sorting,
 // and selected-angle logic stay in App.jsx and arrive here as props.
-export function AngleTableCard({ title, rows, sortDirection, onCycleSort, onPick, styles }) {
+export function AngleTableCard({ title, rows, sortDirection, onCycleSort, onPick, activeId, styles }) {
     return (
         <Card style={styles.card} className="angleTableCard">
             <div style={styles.tableBody}>
@@ -26,7 +26,7 @@ export function AngleTableCard({ title, rows, sortDirection, onCycleSort, onPick
                         <SortIcon direction={sortDirection} />
                     </button>
                 </div>
-                <AngleTable styles={styles} rows={rows} onPick={onPick} />
+                <AngleTable styles={styles} rows={rows} onPick={onPick} activeId={activeId} />
             </div>
         </Card>
     );

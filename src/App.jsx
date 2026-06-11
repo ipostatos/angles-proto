@@ -1066,6 +1066,7 @@ export default function App() {
                     sortDirection={mainSort}
                     onCycleSort={cycleSortMain}
                     onPick={setActiveAngleId}
+                    activeId={activeAngleId}
                     styles={styles}
                 />
 
@@ -1076,6 +1077,7 @@ export default function App() {
                     sortDirection={stefanSort}
                     onCycleSort={cycleSortStefan}
                     onPick={setActiveAngleId}
+                    activeId={activeAngleId}
                     styles={styles}
                 />
 
