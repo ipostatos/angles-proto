@@ -1,18 +1,15 @@
 # App icons
 
 These three PNG files are referenced by `index.html` and `public/site.webmanifest`
-and provide the iPhone home-screen icon and Android/Chrome install icons.
+and provide the iPhone home-screen icon and Android/Chrome install icons. They
+use a light background with a dark saw + ruler motif so the icon stays legible
+on both light and dark iOS home screens.
 
-| File | Declared size | Used by |
+| File | Size | Used by |
 |---|---|---|
 | `apple-touch-icon-180.png` | 180×180 | `<link rel="apple-touch-icon">` — iPhone "Add to Home Screen" |
 | `icon-192.png` | 192×192 | `site.webmanifest` — Android/Chrome install |
 | `icon-512.png` | 512×512 | `site.webmanifest` — splash / high-res |
-
-> **Note:** the committed files are currently a single shared 1254×1254 PNG
-> source (the metadata still declares the standard sizes above; browsers/iOS
-> downscale as needed). To trim install weight, re-export each at its exact
-> declared size per the spec below.
 
 ## Design spec
 
