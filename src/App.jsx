@@ -4,7 +4,6 @@ import { getSortedHoldNames, findHoldById } from './domain/migration.js';
 import { loadState, loadLastModified, getAndResetDidRecover } from './storage/db.js';
 import { getSession, login as apiLogin, logout as apiLogout } from './storage/auth.js';
 import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS_KEY } from './storage/workProgress.js';
-import { printImage } from './utils/image.js';
 import { useHashRoute } from './hooks/useHashRoute.js';
 import { loadLastSeenChangeId, saveLastSeenChangeId } from './storage/changeNotifications.js';
 import { SearchIcon, PrinterIcon, PhoneIcon } from './components/icons.jsx';
@@ -255,7 +254,18 @@ export default function App() {
         const holdsSet = selectedHolds;
         const all = data.angles
             .filter((a) => holdsSet.has(a.holdId))
-            .map(a => ({ ...a, hold: findHoldById(data.holds, a.holdId)?.name ?? '' }));
+            .map(a => {
+                const h = findHoldById(data.holds, a.holdId);
+                // `hold` kept for the table cell; holdName/holdCoverImage carry the
+                // metadata the drawing viewer needs so it never has to re-derive
+                // which hold an active row belongs to.
+                return {
+                    ...a,
+                    hold: h?.name ?? '',
+                    holdName: h?.name ?? '',
+                    holdCoverImage: h?.coverImage,
+                };
+            });
 
         let main = all.filter((a) => a.saw === "main");
         if (mainSort === "asc") {
@@ -274,22 +284,45 @@ export default function App() {
         return { main, stefan };
     }, [data.angles, data.holds, selectedHolds, mainSort, stefanSort]);
 
-    const activeAngle = useMemo(
-        () => data.angles.find((a) => a.id === activeAngleId) || null,
-        [data.angles, activeAngleId]
-    );
+    // The active row, resolved from the *visible* aggregated rows so it always
+    // carries holdName/holdCoverImage and disappears if its hold is deselected.
+    const activeRow = useMemo(() => {
+        if (!activeAngleId) return null;
+        return (
+            selectedAngles.main.find((r) => r.id === activeAngleId) ||
+            selectedAngles.stefan.find((r) => r.id === activeAngleId) ||
+            null
+        );
+    }, [selectedAngles, activeAngleId]);
 
     const viewerSrc = useMemo(() => {
-        if (activeAngle?.drawing) return activeAngle.drawing;
-
+        // Row-driven: a tapped angle shows its own drawing, else its hold's cover.
+        // We never guess an image for a multi-hold selection — that is left blank
+        // with an explanatory placeholder (see viewerEmptyText).
+        if (activeRow) {
+            if (activeRow.drawing) return activeRow.drawing;
+            return activeRow.holdCoverImage || null;
+        }
+        // Nothing tapped: a single selected hold shows its blueprint.
         if (selectedHolds.size === 1) {
             const holdId = Array.from(selectedHolds)[0];
-            const hold = findHoldById(data.holds, holdId);
-            const cover = hold?.coverImage;
-            if (cover) return cover;
+            return findHoldById(data.holds, holdId)?.coverImage || null;
         }
         return null;
-    }, [activeAngle, selectedHolds, data.holds]);
+    }, [activeRow, selectedHolds, data.holds]);
+
+    // Placeholder shown only when viewerSrc is null. Three distinct cases:
+    // a tapped row with no image, a multi-hold selection awaiting a tap, or
+    // the plain single-hold/no-selection case.
+    const viewerEmptyText = useMemo(() => {
+        if (activeRow) {
+            return `No drawing or cover for ${activeRow.holdName || 'this hold'}.`;
+        }
+        if (selectedHolds.size > 1) {
+            return "Multiple holds selected. Tap an angle row in MAIN/STEFAN to show the drawing or cover for that hold.";
+        }
+        return "no drawing uploaded";
+    }, [activeRow, selectedHolds]);
 
     // P1: useCallback handlers
     const toggleHold = useCallback((name) => {
@@ -299,6 +332,30 @@ export default function App() {
             else next.add(name);
             return next;
         });
+    }, []);
+
+    // Print just the current drawing. We flip the page into a print-only
+    // single-image layout (body.printing-drawing) and call window.print()
+    // *synchronously* inside the tap. The hidden <img.print-drawing-img> is
+    // already mounted with viewerSrc, so the print view paints immediately and
+    // there is no async img.onload — that async gap is what made iOS Safari
+    // block this as an "automatic" print. afterprint / matchMedia restore the UI.
+    const printDrawing = useCallback((src) => {
+        if (!src) return;
+        document.body.classList.add("printing-drawing");
+        const mql = typeof window.matchMedia === "function" ? window.matchMedia("print") : null;
+        let cleaned = false;
+        const cleanup = () => {
+            if (cleaned) return;
+            cleaned = true;
+            document.body.classList.remove("printing-drawing");
+            window.removeEventListener("afterprint", cleanup);
+            mql?.removeEventListener?.("change", onMqlChange);
+        };
+        function onMqlChange(e) { if (!e.matches) cleanup(); }
+        window.addEventListener("afterprint", cleanup);
+        mql?.addEventListener?.("change", onMqlChange);
+        window.print();
     }, []);
 
     const saveProgress = useCallback(() => {
@@ -444,6 +501,10 @@ export default function App() {
           display: none;
         }
 
+        .print-drawing-wrap {
+          display: none;
+        }
+
         @media print {
           @page {
             margin: 10mm;
@@ -562,6 +623,22 @@ export default function App() {
              height: 0 !important;
              width: 0 !important;
              overflow: hidden !important;
+          }
+
+          /* Single-drawing print: hide the table sheet, show only the image. */
+          body.printing-drawing .main-grid,
+          body.printing-drawing .print-sheet {
+            display: none !important;
+          }
+          body.printing-drawing .print-drawing-wrap {
+            display: block !important;
+            text-align: center !important;
+            width: 100% !important;
+          }
+          body.printing-drawing .print-drawing-wrap img {
+            max-width: 100% !important;
+            max-height: 95vh !important;
+            object-fit: contain !important;
           }
         }
         
@@ -1096,10 +1173,11 @@ export default function App() {
                 {/* Viewer */}
                 <DrawingViewerCard
                     src={viewerSrc}
-                    onPrint={printImage}
+                    onPrint={printDrawing}
                     onZoom={setZoomedImage}
                     styles={styles}
                     theme={theme}
+                    emptyText={viewerEmptyText}
                 />
             </div>
 
@@ -1121,6 +1199,12 @@ export default function App() {
                         className="print-section-stefan"
                     />
                 )}
+            </div>
+
+            {/* Print-only single-drawing layout. Hidden by default; the per-drawing
+                print button flips body.printing-drawing to show only this image. */}
+            <div className="print-drawing-wrap" aria-hidden="true">
+                {viewerSrc ? <img className="print-drawing-img" src={viewerSrc} alt="drawing" /> : null}
             </div>
 
             {workMode && (
