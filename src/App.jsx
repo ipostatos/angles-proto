@@ -695,12 +695,30 @@ export default function App() {
             padding: 0 !important; /* Remove card padding from App.css to use cardBody padding */
           }
 
-          /* MAIN/STEFAN tables: narrower and centered on mobile, not full-bleed */
-          .main-grid > .angleTableCard {
+          /* MAIN/STEFAN tables + drawing preview: same width, centered, not full-bleed */
+          .main-grid > .angleTableCard,
+          .main-grid > :nth-child(4) {
             width: 100% !important;
             max-width: 360px !important;
             margin-left: auto !important;
             margin-right: auto !important;
+          }
+
+          /* Collapsed/empty state: MAIN, STEFAN and the preview read as three
+             equal, compact tiles. Populated tables grow past this floor. */
+          .main-grid > :nth-child(2),
+          .main-grid > :nth-child(3),
+          .main-grid > :nth-child(4) {
+            min-height: 72px !important;
+          }
+          /* Let the preview's empty box fill its tile rather than sit as a thin strip. */
+          .main-grid > :nth-child(4),
+          .main-grid > :nth-child(4) .viewerWrap {
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          .main-grid > :nth-child(4) .viewerWrap {
+            flex: 1 1 auto !important;
           }
 
           .holdsList {
@@ -710,6 +728,12 @@ export default function App() {
           .table {
             max-height: 40vh !important;
             overflow-y: auto !important;
+          }
+
+          /* MAIN/STEFAN angle rows: taller, easier finger target on mobile */
+          .print-table-row {
+            min-height: 40px !important;
+            padding: 8px 10px !important;
           }
 
           /* MOBILE FIX START */
@@ -789,7 +813,7 @@ export default function App() {
           .searchFade {
              display: block !important;
              position: fixed !important;
-             top: 40px !important;
+             top: 56px !important;
              left: 0 !important;
              right: 0 !important;
              height: 28px !important;
@@ -799,21 +823,22 @@ export default function App() {
           }
           /* Offset the card body so content starts below the fixed search */
           .holdsCardBody {
-             padding-top: calc(28px + 15px) !important;
+             padding-top: calc(44px + 20px) !important;
           }
           .searchPill {
-             height: 28px !important;
-             min-height: 28px !important;
+             height: 44px !important;
+             min-height: 44px !important;
              border: 1px solid #e0e0e0 !important;
              background: #fff !important;
              margin-bottom: 0 !important;
              display: flex !important;
              align-items: center !important;
-             padding: 0 10px !important;
+             padding: 0 12px !important;
           }
           .searchInput {
-             font-size: 13px !important;
-             height: 28px !important;
+             font-size: 16px !important;
+             height: 44px !important;
+             line-height: 44px !important;
              min-height: 0 !important;
           }
 
@@ -875,17 +900,17 @@ export default function App() {
 
                 /* MOBILE ULTRA COMPACT START */
         @media screen and (max-width: 640px) {
-          /* Search input field: strict 34px */
+          /* Search input field: 44px touch target (was 34px — hard to tap) */
           .searchPill {
-             height: 34px !important;
-             min-height: 34px !important;
+             height: 44px !important;
+             min-height: 44px !important;
              margin-bottom: 4px !important;
-             padding: 0 8px !important;
+             padding: 0 12px !important;
           }
           .searchInput {
-             line-height: 34px !important;
-             height: 34px !important;
-             font-size: 14px !important;
+             line-height: 44px !important;
+             height: 44px !important;
+             font-size: 16px !important;
           }
           .searchIconWrap svg {
              width: 14px !important;
