@@ -10,7 +10,7 @@ import { PrinterIcon, ZoomIcon } from '../../components/icons.jsx';
 //
 // NOTE: intentionally NOT reusing the existing DrawingViewer.jsx — it hardcodes
 // a different empty-state color (#9ca3af); reconciling that is a later slice.
-export function DrawingViewerCard({ src, onPrint, onZoom, styles, theme }) {
+export function DrawingViewerCard({ src, onPrint, onZoom, styles, theme, emptyText = "no drawing uploaded" }) {
     return (
         <Card data-print-hide style={styles.card}>
             <div style={styles.viewerWrap}>
@@ -40,7 +40,7 @@ export function DrawingViewerCard({ src, onPrint, onZoom, styles, theme }) {
                     </div>
                 ) : (
                     <div style={styles.viewerEmpty}>
-                        <div style={{ fontSize: 12, color: theme.colors.textMuted }}>no drawing uploaded</div>
+                        <div style={{ fontSize: 12, color: theme.colors.textMuted, textAlign: "center", lineHeight: 1.4, padding: "0 16px", maxWidth: 260 }}>{emptyText}</div>
                     </div>
                 )}
             </div>
