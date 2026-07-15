@@ -12,8 +12,8 @@ Work-mode progress and theme are device-local and intentionally **not** backed u
 ## ⚠️ Where backups must NOT go
 
 Database dumps were once committed to git history and had to be scrubbed with
-`git filter-repo` (see `R1` in [`SECURITY_DEBT.md`](../SECURITY_DEBT.md) and
-`RESOLVED-1` in [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md)). To avoid a repeat:
+`git filter-repo` (see `R1` in [`SECURITY_DEBT.md`](../SECURITY_DEBT.md)). To
+avoid a repeat:
 
 - **Never** place a dump inside the repo working tree, even briefly.
 - `.gitignore` already blocks the known dump patterns (`base.json`, `Base_*.json`,

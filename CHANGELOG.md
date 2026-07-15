@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. This project loosely
 follows [Semantic Versioning](https://semver.org/).
 
+## v2.0
+
+Production release. Angles is a complete, in-use workshop tool rather than a
+prototype. This milestone consolidates the shared-backend architecture (v1.5)
+with the incremental UI decomposition, design-system consolidation, operator and
+sidebar polish, and the mobile/PWA layer (installable iOS home-screen icon,
+standalone display, safe-area handling).
+
+### Changed
+- Promoted the project to a production-ready tool; refreshed documentation to
+  match the current shared-backend architecture.
+
+### Fixed
+- Various UI polish and mobile touch-target / safe-area refinements.
+
 ## v1.5
 
 The shared-backend, multi-user milestone: the catalog moved from browser

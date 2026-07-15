@@ -28,9 +28,8 @@ authorized by a server-verified session rather than client-side checks.
 - **Operations & CI.** A backup/restore runbook ([`OPERATIONS.md`](OPERATIONS.md)),
   a CI pipeline (lint/test/build/audit + secret scan), and Dependabot.
 
-**Stabilization:** a single-pass review before planning v1.6/v2.0 confirmed all
-gates green and surfaced only non-blocking polish/UX findings — see
-`superpowers/specs/2026-06-09-phase1.5-stabilization.md`.
+**Stabilization:** a single-pass review before planning later work confirmed all
+gates green and surfaced only non-blocking polish/UX findings.
 
 **Upgrade / operational notes:**
 

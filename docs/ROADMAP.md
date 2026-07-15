@@ -1,15 +1,14 @@
 # Roadmap
 
-Direction for Angles. Items are triaged from the Phase 1.5 stabilization review
-(`docs/superpowers/specs/2026-06-09-phase1.5-stabilization.md`). Nothing here is
-a commitment to a date — it is the planned order of work.
+Direction for Angles. Items are triaged from the v1.5 stabilization review.
+Nothing here is a commitment to a date — it is the planned order of work.
 
-## v1.5 — current stable
+## v1.5 — shared-backend milestone (shipped)
 
 The shared-backend, multi-user milestone. Catalog in Neon Postgres, server-side
 admin sessions, audit log, change notifications, and responsive UI polish. All
-quality gates green (lint, 633 tests, build, `npm audit`). See
-[`../CHANGELOG.md`](../CHANGELOG.md).
+quality gates green (lint, tests, build, `npm audit`). Consolidated into the
+current **v2.0** production release. See [`../CHANGELOG.md`](../CHANGELOG.md).
 
 ## v1.6 — stabilization & maintainability
 
@@ -56,11 +55,11 @@ behavior moved and the PR is wrong):
 - `x-forwarded-for` rate-limit hardening — a security/behavior change, handled
   as its own `security:` ticket once the deployment posture (internal / public
   demo / production) is settled. Not part of stabilization.
-- Everything under v2.0 below.
+- Everything under Future direction below.
 
-## v2.0 — larger / architectural
+## Future direction — larger / architectural
 
-Bigger product or architecture changes:
+Bigger product or architecture changes, beyond the current v2.0 release:
 
 - **Image storage** — move cover/drawing images out of the catalog JSON into
   dedicated blob storage, shrinking payloads and removing the size cap as a

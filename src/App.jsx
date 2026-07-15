@@ -19,20 +19,11 @@ import { AdminPage, formatLastModified } from './components/AdminPage.jsx';
 import { theme, getStyles } from './styles/theme.js';
 
 /**
- * PROTOTYPE (no backend)
- * - Holds + angles stored in localStorage
- * - Two tables: MAIN + STEFAN
- * - Viewer shows uploaded drawings (angle drawing) and HOLD cover (fallback)
- * - Admin page: /#/admin
- * - UI simplified: no transitions/animations
- *
- * v0.9
- * - Debounced localStorage writes (perf + race fix)
- * - ObjectURL cleanup hardened (leak fix)
- * - useCallback on handlers (perf)
- * - Backup ring before import (data safety)
- * - iOS focus fix (setTimeout instead of rAF)
- * - Admin: SHA-256 hash stored in localStorage (no hardcoded password after first login)
+ * Root operator/admin view.
+ * - Shared catalog is loaded from GET /api/state (Neon Postgres via Vercel Functions).
+ * - Two tables: MAIN + STEFAN; row click opens the cutting drawing (HOLD cover fallback).
+ * - Admin page at /#/admin edits the catalog behind a server-verified session.
+ * - Device-local UI state (work-mode progress, theme, last-seen change id) lives in localStorage.
  */
 
 /* ===================== APP ===================== */

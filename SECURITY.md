@@ -31,7 +31,6 @@ model, accepted risks, and current security backlog are documented in:
 - [`THREAT_MODEL.md`](THREAT_MODEL.md) — assets, trust boundaries, threats.
 - [`SECURITY_DEBT.md`](SECURITY_DEBT.md) — prioritized backlog and accepted debt.
 - [`SECURITY_CHECKLIST.md`](SECURITY_CHECKLIST.md) — review checklist.
-- [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md) — historical pre-backend audit.
 
 ### Known, intentional design decisions
 

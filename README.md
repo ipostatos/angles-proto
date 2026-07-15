@@ -1,21 +1,21 @@
 # Angles
 
-> Saw-angle reference tool for production workshops: select products, compare MAIN and STEFAN cut angles, print reference sheets, and manage a shared catalog.
+> Production saw-angle tool for workshops: select products, compare MAIN and STEFAN cut angles, print reference sheets, and manage a shared catalog. In daily workshop use.
 
-[![Version](https://img.shields.io/badge/version-v1.5-brightgreen?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-v2.0-brightgreen?style=flat-square)](CHANGELOG.md)
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-avacut.vercel.app-black?style=flat-square&logo=vercel)](https://avacut.vercel.app)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-000?style=flat-square&logo=vercel)](https://vercel.com)
 [![License](https://img.shields.io/badge/license-proprietary-lightgrey?style=flat-square)](#license)
 
-**Current version: v1.5** — see the [changelog](CHANGELOG.md) and [release notes](docs/RELEASE_NOTES.md).
+**Current version: v2.0** — production-ready. See the [changelog](CHANGELOG.md) and [release notes](docs/RELEASE_NOTES.md).
 
 ---
 
 ## What It Does
 
-Angles is an online workshop reference app. Operators can select one or more products, view their saw angles for **MAIN** and **STEFAN**, open the cutting drawing for a row, use a phone-friendly work mode, and print A4 reference sheets.
+Angles is a production workshop tool in daily use. Operators can select one or more products, view their saw angles for **MAIN** and **STEFAN**, open the cutting drawing for a row, use a phone-friendly work mode, and print A4 reference sheets.
 
 Admins sign in as a named user and edit one shared catalog stored in Neon Postgres through same-origin Vercel Functions. Every successful catalog save is revision-locked and logged to a change history.
 
@@ -188,8 +188,6 @@ Known limitations:
 
 Current docs: [`THREAT_MODEL.md`](THREAT_MODEL.md), [`SECURITY_DEBT.md`](SECURITY_DEBT.md), [`SECURITY_CHECKLIST.md`](SECURITY_CHECKLIST.md).
 
-Historical pre-backend audit: [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md).
-
 Vulnerability reporting: see [`SECURITY.md`](SECURITY.md) — do not open public issues for security problems.
 
 ---
@@ -198,14 +196,12 @@ Vulnerability reporting: see [`SECURITY.md`](SECURITY.md) — do not open public
 
 Full detail in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
-- **v1.5 — current stable.** Shared Neon backend, server-verified admin
-  sessions, audit log, change notifications, responsive UI polish. All gates
-  green.
-- **v1.6 — stabilization / UX polish / bug fixes.** Smoother `409` recovery
-  (auto-refresh revision), documented setup gotchas, scheduled `login_attempts`
-  pruning.
-- **v2.0 — architectural expansion.** Cover/drawing images to blob storage,
-  self-service password rotation / external identity, real stale-save merge,
+- **v2.0 — current production release.** Shared Neon backend, server-verified
+  admin sessions, audit log, change notifications, decomposed UI, design-system
+  consolidation, and the mobile/PWA layer. In daily workshop use. All gates green.
+- **Future direction.** Smoother `409` recovery (auto-refresh revision),
+  scheduled `login_attempts` pruning, cover/drawing images to blob storage,
+  self-service password rotation / external identity, real stale-save merge, and
   repo branch protection.
 
 ---
