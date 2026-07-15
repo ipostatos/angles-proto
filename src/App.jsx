@@ -72,9 +72,9 @@ export default function App() {
     const [holdSearch, setHoldSearch] = useState("");
     const searchRef = useRef(null);
 
-    // Sidebar hold filter by saw: "all" | "main" | "stefan".
-    // "main"/"stefan" show only holds whose angles are ALL one saw (pure holds);
-    // holds with no angles, or with mixed saws, are hidden. "all" = every hold.
+    // Sidebar hold filter: "all" | "main".
+    // "main" shows only holds whose angles are ALL main (pure-main holds) — used
+    // to see which holds are main-only. "all" = every hold.
     const [sawFilter, setSawFilter] = useState("all");
 
     // Phase 2C: server-backed auth. currentUser comes from GET /api/session;
@@ -263,8 +263,9 @@ export default function App() {
     const visibleHolds = useMemo(() => {
         let holds = sortedHolds;
 
-        // Saw filter: keep only holds whose angles are ALL one saw. Holds with no
-        // angles (no set) or mixed saws are dropped for "main"/"stefan".
+        // Saw filter: keep only holds whose angles are ALL one saw (pure holds).
+        // Currently "main" only — a hold qualifies if it has angles and every one
+        // is a main angle. Holds with no angles or any stefan angle are dropped.
         if (sawFilter !== "all") {
             holds = holds.filter((h) => {
                 const set = holdSawSets.get(h.id);
@@ -1065,7 +1066,6 @@ export default function App() {
                             {[
                                 { v: "all", l: "ALL" },
                                 { v: "main", l: "MAIN" },
-                                { v: "stefan", l: "STEFAN" },
                             ].map((o, i) => {
                                 const active = sawFilter === o.v;
                                 return (
