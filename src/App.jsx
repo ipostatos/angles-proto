@@ -72,6 +72,11 @@ export default function App() {
     const [holdSearch, setHoldSearch] = useState("");
     const searchRef = useRef(null);
 
+    // Sidebar hold filter by saw: "all" | "main" | "stefan".
+    // "main"/"stefan" show only holds whose angles are ALL one saw (pure holds);
+    // holds with no angles, or with mixed saws, are hidden. "all" = every hold.
+    const [sawFilter, setSawFilter] = useState("all");
+
     // Phase 2C: server-backed auth. currentUser comes from GET /api/session;
     // null = public viewer. sessionLoading gates only the admin entry, never the
     // public catalog (which renders as soon as the catalog load resolves).
@@ -244,11 +249,34 @@ export default function App() {
 
     const sortedHolds = useMemo(() => getSortedHoldNames(data.holds || []), [data.holds]);
 
+    // holdId -> Set of saws present among that hold's angles.
+    const holdSawSets = useMemo(() => {
+        const map = new Map();
+        for (const a of data.angles || []) {
+            let set = map.get(a.holdId);
+            if (!set) { set = new Set(); map.set(a.holdId, set); }
+            set.add(a.saw);
+        }
+        return map;
+    }, [data.angles]);
+
     const visibleHolds = useMemo(() => {
+        let holds = sortedHolds;
+
+        // Saw filter: keep only holds whose angles are ALL one saw. Holds with no
+        // angles (no set) or mixed saws are dropped for "main"/"stefan".
+        if (sawFilter !== "all") {
+            holds = holds.filter((h) => {
+                const set = holdSawSets.get(h.id);
+                return set && set.size === 1 && set.has(sawFilter);
+            });
+        }
+
         const q = holdSearch.trim().toLowerCase();
-        if (!q) return sortedHolds;
-        return sortedHolds.filter((h) => h.name.toLowerCase().includes(q));
-    }, [sortedHolds, holdSearch]);
+        if (q) holds = holds.filter((h) => h.name.toLowerCase().includes(q));
+
+        return holds;
+    }, [sortedHolds, holdSawSets, sawFilter, holdSearch]);
 
     const selectedAngles = useMemo(() => {
         const holdsSet = selectedHolds;
@@ -1033,6 +1061,32 @@ export default function App() {
                 {/* Left: holds */}
                 <Card data-print-hide style={styles.card}>
                     <div style={styles.cardBody} className="holdsCardBody">
+                        <div style={styles.sawFilterRow} className="sawFilterRow" role="group" aria-label="Filter holds by saw">
+                            {[
+                                { v: "all", l: "ALL" },
+                                { v: "main", l: "MAIN" },
+                                { v: "stefan", l: "STEFAN" },
+                            ].map((o, i) => {
+                                const active = sawFilter === o.v;
+                                return (
+                                    <button
+                                        key={o.v}
+                                        type="button"
+                                        onClick={() => setSawFilter(o.v)}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        style={{
+                                            ...styles.sawFilterSeg,
+                                            ...(i === 0 ? { borderLeft: "none" } : null),
+                                            ...(active ? styles.sawFilterSegActive : null),
+                                        }}
+                                        className="sawFilterSeg"
+                                        aria-pressed={active}
+                                    >
+                                        {o.l}
+                                    </button>
+                                );
+                            })}
+                        </div>
                         <div style={styles.searchWrap} className="searchWrap">
                             <div
                                 style={styles.searchPill}
