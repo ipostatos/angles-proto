@@ -278,6 +278,39 @@ export const getStyles = (theme) => ({
         border: "none",
     },
 
+    // Segmented saw filter (ALL | MAIN | STEFAN) shown above the sidebar search.
+    sawFilterRow: {
+        display: "flex",
+        gap: 0,
+        marginBottom: 10,
+        border: `1px solid ${theme.colors.borderMedium}`,
+        borderRadius: theme.radius.md,
+        overflow: "hidden",
+    },
+    sawFilterSeg: {
+        flex: 1,
+        minWidth: 0,
+        height: 30,
+        padding: "0 6px",
+        border: "none",
+        borderLeft: `1px solid ${theme.colors.borderMedium}`,
+        background: theme.colors.cardBg,
+        color: theme.colors.textSecondary,
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.04em",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "none",
+        WebkitTapHighlightColor: "transparent",
+    },
+    sawFilterSegActive: {
+        background: theme.colors.buttonPrimaryBg,
+        color: theme.colors.buttonPrimaryText,
+    },
+
     searchWrap: { paddingBottom: 12 },
     searchPill: {
         display: "flex",
