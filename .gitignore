@@ -20,3 +20,9 @@ angles-db.json
 
 .vercel
 .env*.local
+
+# Garmin build output and signing keys — never commit
+garmin/bin/
+*.prg
+*.der
+*.pem

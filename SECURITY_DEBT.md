@@ -22,6 +22,7 @@
 | D12 | Global `outline:none` removes focus visibility | SEV-LOW | S | A11y | **DONE** — keyboard `:focus-visible` ring restored |
 | D13 | `printImage` uses `document.write` into iframe | SEV-LOW | S | Hardening | **DONE** — rebuilt via DOM APIs, no `document.write` |
 | D14 | No documented DB backup/restore procedure | SEV-MEDIUM | S | Operations | **DONE** — `docs/OPERATIONS.md` |
+| D15 | `POST /api/watch` (Send to watch) is unauthenticated | SEV-LOW | S | Auth | ACCEPTED — single user; only overwrites the watch hold selection, names validated against catalog, 16 KB body cap. Revisit (require session) if more people use watches |
 | R1 | DB dumps in git history | SEV-HIGH (was) | — | Data exposure | **RESOLVED** (monitor residual public clones/caches) |
 
 Effort: S <= 1h, M <= half-day, L > 1 day.

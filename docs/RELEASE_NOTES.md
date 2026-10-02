@@ -3,6 +3,15 @@
 Narrative summary of releases. For the itemized list, see
 [`../CHANGELOG.md`](../CHANGELOG.md).
 
+## Unreleased — Garmin watch
+
+Angles now runs on a Garmin watch. Select holds on the website, press **⌚**
+next to the print icon, open Angles on the watch and cut: **BIG MODE** shows
+one angle at a time in large digits (saw on top, hold name below); START marks
+it cut and moves on. Cut angles turn green, skipped ones red, and progress
+survives Back, exit and reboot. The watch works offline on its saved copy and
+refreshes through the phone. See [`../garmin/README.md`](../garmin/README.md).
+
 ## v1.5 — Shared backend & multi-user
 
 v1.5 is the milestone where Angles became a genuinely multi-user tool. Before

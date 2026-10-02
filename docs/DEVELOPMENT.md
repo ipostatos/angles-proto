@@ -86,6 +86,14 @@ npm run audit
 All must pass. See [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for branching and
 review conventions.
 
+## Garmin watch app
+
+The watch app in `garmin/` is built separately with the Connect IQ SDK and a
+local developer key (never committed). Build, install and the `/api/watch`
+contract are documented in [`../garmin/README.md`](../garmin/README.md).
+When changing the `/api/watch` response shape, update the watch app
+(`garmin/source/AnglesApp.mc`) in the same PR and keep `t` in unix seconds.
+
 ## Tests
 
 Tests are colocated next to the code they cover (`*.test.js` / `*.test.jsx` /

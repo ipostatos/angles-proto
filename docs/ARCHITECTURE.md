@@ -55,6 +55,8 @@ Each top-level file is a serverless endpoint; `api/_lib/` holds shared logic.
 | `POST /api/logout` | Clears the session. |
 | `GET /api/session` | Returns current session status. |
 | `GET /api/history` | Authenticated read of the audit log. |
+| `GET /api/watch` | Public compact catalog for the Garmin app (names + angles, no images) plus the last sent selection: `{ r, h, s, t }`. |
+| `POST /api/watch` | "Send to watch": stores selected hold names (validated against the catalog, max 200). Public. |
 
 `api/_lib/` modules: `auth`, `session`, `password` (scrypt), `http` helpers,
 `db` (Neon client), `stateService` / `stateStore` (catalog persistence +
@@ -72,6 +74,8 @@ Idempotent schema (safe to re-run via `npm run db:setup`):
   old/new value, timestamp).
 - **`login_attempts`** — distributed throttle counter keyed by `ip:username`
   with a sliding-window `reset_at`.
+- **`watch_selection`** — single row: hold names last sent to the watch
+  (`holds` JSONB) and `sent_at`. Also created lazily by `/api/watch`.
 
 ## Key flows
 
@@ -83,8 +87,20 @@ Idempotent schema (safe to re-run via `npm run db:setup`):
   validates, unwraps the export envelope, migrates/sanitizes (raster image data
   URLs only — SVG rejected), and stages a draft that only reaches the database
   on SAVE.
+- **Send to watch.** The ⌚ button POSTs the selected hold names to
+  `/api/watch`. The Garmin app (`garmin/`) calls `GET /api/watch` through the
+  phone on start or via **FROM PHONE**; a new `t` replaces the picked holds on
+  the watch and clears its cut marks. The watch keeps working offline on its
+  saved copy. Details: [`../garmin/README.md`](../garmin/README.md).
 - **Login throttling.** Per `ip:username`, 15-minute window, 8-failure lockout,
   atomic UPSERT, **fails open** if the store is unavailable.
+
+## Garmin watch app (`garmin/`)
+
+Connect IQ app in Monkey C, built with the Connect IQ SDK (not part of the npm
+build or CI). It only reads `/api/watch`; all state on the watch (picked holds,
+cut marks, cached catalog) lives in the watch's Application.Storage. See
+[`../garmin/README.md`](../garmin/README.md).
 
 ## Build & deploy
 

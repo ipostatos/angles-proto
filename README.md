@@ -36,6 +36,8 @@ Admins sign in as a named user and edit one shared catalog stored in Neon Postgr
 | **Change notification** | Logged-in users are notified when another user changed the database |
 | **Work mode** | Device-local progress for checked angles and work theme |
 | **Import / Export** | Export JSON backups; import stages a draft that is persisted on SAVE |
+| **Garmin watch app** | Angles of selected holds on the wrist: BIG MODE, colored list, saved progress — see [`garmin/README.md`](garmin/README.md) |
+| **Send to watch** | ⌚ button next to print sends the selected holds to the watch via `/api/watch` |
 
 ---
 
@@ -58,7 +60,8 @@ angles-proto/
 │   ├── _lib/            # auth, session, db, stateService, rateLimit, schema.sql
 │   ├── login.js  logout.js  session.js
 │   ├── state.js         # GET/PUT shared catalog
-│   └── history.js       # GET audit log
+│   ├── history.js       # GET audit log
+│   └── watch.js         # GET compact catalog + selection for the watch, POST "Send to watch"
 ├── src/                 # React SPA
 │   ├── components/      # shared UI + AdminPage.jsx (the admin surface lives here today)
 │   ├── features/        # operator/ split out; admin/ is a thin re-export stub for now
@@ -67,6 +70,7 @@ angles-proto/
 │   ├── utils/           # helpers (image handling)
 │   ├── App.jsx  main.jsx
 │   └── contexts/ hooks/ constants/ styles/ assets/
+├── garmin/              # Connect IQ watch app (Monkey C) — see garmin/README.md
 ├── scripts/             # db-setup.mjs, seed-users.mjs
 ├── docs/                # ARCHITECTURE, DEVELOPMENT, ROADMAP, RELEASE_NOTES, OPERATIONS
 ├── public/              # static assets
@@ -145,6 +149,7 @@ Open `/#/admin` or click **ADMIN** in the app.
 - `change_log` records hold/angle adds, deletes, renames, saw changes, and value changes.
 - Image-only changes are persisted but not logged as audit events.
 - Work-mode progress and theme are intentionally device-local in `localStorage`.
+- `watch_selection` holds the last hold selection sent with **Send to watch** (single row, public write — see Security).
 - Export downloads the visible catalog/draft as JSON.
 - Import validates and stages a draft; it reaches the shared database only after SAVE.
 - Only raster image data URLs are accepted on import/upload; SVG is rejected.
@@ -184,6 +189,7 @@ Known limitations:
 - Seeded passwords must be supplied through env; `password = username` is opt-in only via `ALLOW_WEAK_SEED_PASSWORDS=true`.
 - `/api/login` is rate-limited by a shared Neon-backed throttle (per IP + username, 15-min window); it fails open if the throttle store is unavailable.
 - Public catalog read is intentional; admin writes and history require a valid session.
+- `POST /api/watch` (Send to watch) is public like the catalog read: it only stores hold names that exist in the catalog (max 200), but anyone with the URL can overwrite the watch selection. Acceptable while one person uses the watch; tracked as D15 in `SECURITY_DEBT.md`.
 - Secrets stay server-side only (`DATABASE_URL`, `SESSION_SECRET`).
 
 Current docs: [`THREAT_MODEL.md`](THREAT_MODEL.md), [`SECURITY_DEBT.md`](SECURITY_DEBT.md), [`SECURITY_CHECKLIST.md`](SECURITY_CHECKLIST.md).
