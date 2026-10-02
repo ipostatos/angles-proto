@@ -25,7 +25,7 @@ START selects or marks, BACK goes back. Hold UP (MENU) jumps to the top of a lis
 (in BIG MODE: back to the first angle).
 
 **Order of angles** (same as the web work mode): MAIN high → low, then STEFAN
-low → high.
+high → low.
 
 **Colors:** green = cut; red = missed (not cut, but a later angle of the same
 saw is already cut). Marking an angle while one above it in the same saw is

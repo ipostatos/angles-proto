@@ -5,14 +5,14 @@ import Toybox.Math;
 
 // Flat cut list for the picked holds + "done" marks saved on the watch,
 // so leaving the app or pressing Back never loses progress.
-// Entry: [saw, value, hold, key]; MAIN high to low, then STEFAN low to high.
+// Entry: [saw, value, hold, key]; MAIN high to low, then STEFAN high to low.
 class Progress {
     var entries as Array = [];
     hidden var _done as Array;
 
     function initialize(rows as Array) {
         addSaw(rows, 1, "MAIN", false);
-        addSaw(rows, 2, "STEFAN", true);
+        addSaw(rows, 2, "STEFAN", false);
         var d = Storage.getValue("done");
         _done = d instanceof Array ? d : [];
     }
