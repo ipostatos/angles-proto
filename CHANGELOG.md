@@ -11,6 +11,8 @@ follows [Semantic Versioning](https://semver.org/).
   red = missed), progress saved on the watch, separate RESET PROGRESS and
   RESET HOLDS (both ask for confirmation), double vibration when an angle
   is marked while an earlier one of the same saw is still open.
+  Holds and LIST screens are custom-drawn (no Instinct 3 subscreen circle);
+  new angle launcher icon.
 - **Send to watch** button next to print on the main page.
 - `GET/POST /api/watch`: compact catalog (~3.5 KB, no images) and the last
   selection sent to the watch; new `watch_selection` table.

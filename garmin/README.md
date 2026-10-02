@@ -17,7 +17,11 @@ Garmin models; only the Instinct 3 AMOLED 45mm build is tested).
 | **RESET PROGRESS** | Asks *Reset progress?*, then clears the cut marks (green/red). Keeps the selected holds. |
 | **RESET HOLDS** | Asks *Untick all holds?*, then unticks all holds. Keeps the cut marks. |
 | **FROM PHONE** | Pulls the holds sent from the website (see below). Shows `no phone / offline` if it fails. |
-| hold names | Toggle a hold on/off. |
+| hold names | START ticks / unticks a hold (green box = picked). |
+
+All screens are drawn by the app itself (no system menus), so the Instinct 3
+round subscreen icon never appears. Buttons everywhere: UP / DOWN move,
+START selects or marks, BACK goes back.
 
 **Order of angles** (same as the web work mode): MAIN high → low, then STEFAN
 low → high.
@@ -81,8 +85,9 @@ file to update. Saved holds and progress are kept across updates.
 | File | Purpose |
 |---|---|
 | `source/AnglesApp.mc` | App entry, catalog loading, sync with `/api/watch`. |
-| `source/HoldMenu.mc` | Holds screen and its actions. |
+| `source/ScrollList.mc` | Shared full-screen list (focus row in the middle) + button delegate. |
+| `source/HoldsView.mc` | Holds screen, its actions and reset confirmations. |
 | `source/Progress.mc` | Ordered cut list, saved cut marks, missed detection. |
 | `source/BigView.mc` | BIG MODE screen and buttons. |
-| `source/AngleMenu.mc` | Colored LIST view. |
+| `source/AnglesView.mc` | Colored LIST view. |
 | `tools/build-catalog.mjs` | Writes the bundled catalog from `/api/state`. |

@@ -102,6 +102,16 @@ class Progress {
         return i < entries.size() - 1 ? i + 1 : i;
     }
 
+    function doneCount() as Number {
+        var n = 0;
+        for (var j = 0; j < entries.size(); j++) {
+            if (isDone(j)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
     function firstOpen() as Number {
         for (var j = 0; j < entries.size(); j++) {
             if (!isDone(j)) {
