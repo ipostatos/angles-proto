@@ -9,7 +9,7 @@ import Toybox.WatchUi;
 const CATALOG_URL = "https://avacut.vercel.app/api/watch";
 
 // The hold menu currently on screen (null while angles are shown).
-var gHoldMenu as HoldMenu or Null = null;
+var gHoldsView as HoldsView or Null = null;
 
 function loadCatalog() as Array {
     var cached = Storage.getValue("catalog");
@@ -19,9 +19,9 @@ function loadCatalog() as Array {
     return WatchUi.loadResource(Rez.JsonData.Catalog) as Array;
 }
 
-function showHoldMenu() as Void {
-    var menu = new HoldMenu(loadCatalog());
-    WatchUi.switchToView(menu, new HoldMenuDelegate(menu), WatchUi.SLIDE_IMMEDIATE);
+function showHolds() as Void {
+    var v = new HoldsView(loadCatalog());
+    WatchUi.switchToView(v, new ScrollDelegate(v), WatchUi.SLIDE_IMMEDIATE);
 }
 
 // Ask the server (through the phone) for the catalog and the "Send to watch" selection.
@@ -38,8 +38,8 @@ class SyncHandler {
 
     function onResponse(code as Number, data as Dictionary or String or Null) as Void {
         if (code != 200 || !(data instanceof Dictionary)) {
-            if (gHoldMenu != null) {
-                gHoldMenu.setSyncStatus("no phone / offline");
+            if (gHoldsView != null) {
+                gHoldsView.setSyncStatus("no phone / offline");
             }
             return;
         }
@@ -56,8 +56,8 @@ class SyncHandler {
             Storage.setValue("picked", sent);
             clearProgress();
         }
-        if (gHoldMenu != null) {
-            showHoldMenu();
+        if (gHoldsView != null) {
+            showHolds();
         }
     }
 }
@@ -69,7 +69,7 @@ class AnglesApp extends Application.AppBase {
 
     function getInitialView() as [WatchUi.Views] or [WatchUi.Views, WatchUi.InputDelegates] {
         syncFromPhone();
-        var menu = new HoldMenu(loadCatalog());
-        return [menu, new HoldMenuDelegate(menu)];
+        var v = new HoldsView(loadCatalog());
+        return [v, new ScrollDelegate(v)];
     }
 }

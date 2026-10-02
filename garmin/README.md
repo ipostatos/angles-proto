@@ -3,7 +3,7 @@
 Connect IQ watch app that shows the saw angles of selected holds on the wrist.
 No drawings or images — only hold names and MAIN / STEFAN angles.
 
-Target device: **Instinct 3 AMOLED 45mm** (the manifest also lists a few other
+Target devices: **Instinct 3 AMOLED 45mm** and **Fenix 6 Pro** (the manifest also lists a few other
 Garmin models; only the Instinct 3 AMOLED 45mm build is tested).
 
 ## How it works on the watch
@@ -14,16 +14,22 @@ Garmin models; only the Instinct 3 AMOLED 45mm build is tested).
 |---|---|
 | **BIG MODE** · `N selected` | One angle per screen, large. |
 | **LIST** | All angles of the selected holds as a colored list. |
-| **RESET PROGRESS** | Clears the cut marks (green/red). Keeps the selected holds. |
-| **RESET HOLDS** | Unticks all holds. Keeps the cut marks. |
+| **RESET PROGRESS** | Asks *Reset progress?*, then clears the cut marks (green/red). Keeps the selected holds. |
+| **RESET HOLDS** | Asks *Untick all holds?*, then unticks all holds. Keeps the cut marks. |
 | **FROM PHONE** | Pulls the holds sent from the website (see below). Shows `no phone / offline` if it fails. |
-| hold names | Toggle a hold on/off. |
+| hold names | START ticks / unticks a hold (green box = picked). |
 
-**Order of angles** (same as the web work mode): MAIN high → low, then STEFAN
-low → high.
+All screens are drawn by the app itself (no system menus), so the Instinct 3
+round subscreen icon never appears. Buttons everywhere: UP / DOWN move,
+START selects or marks, BACK goes back. Hold UP (MENU) jumps to the top of a list
+(in BIG MODE: back to the first angle).
+
+**Order of angles:** MAIN high → low, then STEFAN
+high → low.
 
 **Colors:** green = cut; red = missed (not cut, but a later angle of the same
-saw is already cut).
+saw is already cut). Marking an angle while one above it in the same saw is
+still open vibrates twice, so a skip is noticed right away.
 
 **BIG MODE buttons:** START marks the angle cut and jumps to the next open one
 (press again on a cut angle to unmark); UP / DOWN browse.
@@ -80,8 +86,9 @@ file to update. Saved holds and progress are kept across updates.
 | File | Purpose |
 |---|---|
 | `source/AnglesApp.mc` | App entry, catalog loading, sync with `/api/watch`. |
-| `source/HoldMenu.mc` | Holds screen and its actions. |
+| `source/ScrollList.mc` | Shared full-screen list (focus row in the middle) + button delegate. |
+| `source/HoldsView.mc` | Holds screen, its actions and reset confirmations. |
 | `source/Progress.mc` | Ordered cut list, saved cut marks, missed detection. |
 | `source/BigView.mc` | BIG MODE screen and buttons. |
-| `source/AngleMenu.mc` | Colored LIST view. |
+| `source/AnglesView.mc` | Colored LIST view. |
 | `tools/build-catalog.mjs` | Writes the bundled catalog from `/api/state`. |

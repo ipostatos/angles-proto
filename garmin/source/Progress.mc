@@ -1,17 +1,18 @@
+import Toybox.Attention;
 import Toybox.Application.Storage;
 import Toybox.Lang;
 import Toybox.Math;
 
 // Flat cut list for the picked holds + "done" marks saved on the watch,
 // so leaving the app or pressing Back never loses progress.
-// Entry: [saw, value, hold, key]; MAIN high to low, then STEFAN low to high.
+// Entry: [saw, value, hold, key]; MAIN high to low, then STEFAN high to low.
 class Progress {
     var entries as Array = [];
     hidden var _done as Array;
 
     function initialize(rows as Array) {
         addSaw(rows, 1, "MAIN", false);
-        addSaw(rows, 2, "STEFAN", true);
+        addSaw(rows, 2, "STEFAN", false);
         var d = Storage.getValue("done");
         _done = d instanceof Array ? d : [];
     }
@@ -54,6 +55,20 @@ class Progress {
             _done.add(key);
         }
         Storage.setValue("done", _done);
+        if (isDone(i) && hasOpenBefore(i)) {
+            warnSkipped();
+        }
+    }
+
+    // An earlier angle of the same saw is still not cut.
+    hidden function hasOpenBefore(i as Number) as Boolean {
+        var saw = entries[i][0] as String;
+        for (var j = i - 1; j >= 0 && saw.equals(entries[j][0]); j--) {
+            if (!isDone(j)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Not cut, but a later angle of the same saw already is: skipped by mistake.
@@ -87,6 +102,16 @@ class Progress {
         return i < entries.size() - 1 ? i + 1 : i;
     }
 
+    function doneCount() as Number {
+        var n = 0;
+        for (var j = 0; j < entries.size(); j++) {
+            if (isDone(j)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
     function firstOpen() as Number {
         for (var j = 0; j < entries.size(); j++) {
             if (!isDone(j)) {
@@ -94,6 +119,17 @@ class Progress {
             }
         }
         return 0;
+    }
+}
+
+// Two short pulses: an angle above was skipped.
+function warnSkipped() as Void {
+    if (Attention has :vibrate) {
+        Attention.vibrate([
+            new Attention.VibeProfile(100, 250),
+            new Attention.VibeProfile(0, 150),
+            new Attention.VibeProfile(100, 250)
+        ]);
     }
 }
 
