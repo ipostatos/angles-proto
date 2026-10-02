@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
+    <iq:application id="a7e3c1f09b2d4c5e8f6a1b3d5c7e9f02" type="watch-app" name="@Strings.AppName" entry="AnglesApp" launcherIcon="@Drawables.LauncherIcon" minApiLevel="3.2.0">
+        <iq:products>
+            <iq:product id="instinct3amoled45mm"/>
+            <iq:product id="instinct3amoled50mm"/>
+            <iq:product id="instinct3solar45mm"/>
+            <iq:product id="fenix7"/>
+            <iq:product id="fenix8solar51mm"/>
+            <iq:product id="fr265"/>
+            <iq:product id="fr965"/>
+            <iq:product id="venu3"/>
+            <iq:product id="vivoactive5"/>
+        </iq:products>
+        <iq:permissions>
+            <iq:uses-permission id="Communications"/>
+        </iq:permissions>
+        <iq:languages>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+        <iq:barrels/>
+    </iq:application>
+</iq:manifest>

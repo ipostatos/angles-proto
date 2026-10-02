@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. This project loosely
 follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Added
+- Garmin watch app (`garmin/`, Connect IQ, Instinct 3 AMOLED 45mm): pick holds,
+  BIG MODE (one large angle per screen), colored list (green = cut,
+  red = missed), progress saved on the watch, separate RESET PROGRESS and
+  RESET HOLDS.
+- **Send to watch** button next to print on the main page.
+- `GET/POST /api/watch`: compact catalog (~3.5 KB, no images) and the last
+  selection sent to the watch; new `watch_selection` table.
+
+### Changed
+- Dependency updates to clear `npm audit` (vite, undici, browserslist,
+  brace-expansion).
+
 ## v1.5
 
 The shared-backend, multi-user milestone: the catalog moved from browser
