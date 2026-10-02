@@ -3,7 +3,7 @@
 Connect IQ watch app that shows the saw angles of selected holds on the wrist.
 No drawings or images — only hold names and MAIN / STEFAN angles.
 
-Target device: **Instinct 3 AMOLED 45mm** (the manifest also lists a few other
+Target devices: **Instinct 3 AMOLED 45mm** and **Fenix 6 Pro** (the manifest also lists a few other
 Garmin models; only the Instinct 3 AMOLED 45mm build is tested).
 
 ## How it works on the watch
