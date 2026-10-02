@@ -6,7 +6,8 @@ import { getSession, login as apiLogin, logout as apiLogout } from './storage/au
 import { saveWorkProgress, loadWorkProgress, clearWorkProgress, LS_WORK_PROGRESS_KEY } from './storage/workProgress.js';
 import { useHashRoute } from './hooks/useHashRoute.js';
 import { loadLastSeenChangeId, saveLastSeenChangeId } from './storage/changeNotifications.js';
-import { SearchIcon, PrinterIcon, PhoneIcon } from './components/icons.jsx';
+import { SearchIcon, PrinterIcon, PhoneIcon, WatchIcon } from './components/icons.jsx';
+import { sendHoldsToWatch } from './storage/watch.js';
 import { Card } from './components/Card.jsx';
 import { ConfirmDialog } from './components/ConfirmDialog.jsx';
 import { PasswordInput } from './components/PasswordInput.jsx';
@@ -362,6 +363,17 @@ export default function App() {
             return next;
         });
     }, []);
+
+    const sendToWatch = useCallback(async () => {
+        const names = (data.holds || []).filter((h) => selectedHolds.has(h.id)).map((h) => h.name);
+        if (names.length === 0) return;
+        try {
+            const r = await sendHoldsToWatch(names);
+            toast.success(`Sent ${r.count} hold(s) to the watch`);
+        } catch {
+            toast.error("Could not send to the watch. Check the connection.");
+        }
+    }, [data.holds, selectedHolds]);
 
     // Print just the current drawing. We flip the page into a print-only
     // single-image layout (body.printing-drawing) and call window.print()
@@ -1202,6 +1214,29 @@ export default function App() {
                                 }}
                             >
                                 <PrinterIcon />
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={sendToWatch}
+                                disabled={selectedHolds.size === 0}
+                                title="Send selected holds to the Garmin watch"
+                                aria-label="Send to watch"
+                                data-print-hide
+                                className="iconBtn"
+                                style={{
+                                    ...styles.btnGhost,
+                                    width: 36,
+                                    height: 36,
+                                    padding: 0,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flex: "0 0 auto",
+                                    opacity: selectedHolds.size === 0 ? 0.4 : 1,
+                                }}
+                            >
+                                <WatchIcon />
                             </button>
 
 
