@@ -1,3 +1,4 @@
+import Toybox.Attention;
 import Toybox.Application.Storage;
 import Toybox.Lang;
 import Toybox.Math;
@@ -54,6 +55,20 @@ class Progress {
             _done.add(key);
         }
         Storage.setValue("done", _done);
+        if (isDone(i) && hasOpenBefore(i)) {
+            warnSkipped();
+        }
+    }
+
+    // An earlier angle of the same saw is still not cut.
+    hidden function hasOpenBefore(i as Number) as Boolean {
+        var saw = entries[i][0] as String;
+        for (var j = i - 1; j >= 0 && saw.equals(entries[j][0]); j--) {
+            if (!isDone(j)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Not cut, but a later angle of the same saw already is: skipped by mistake.
@@ -94,6 +109,17 @@ class Progress {
             }
         }
         return 0;
+    }
+}
+
+// Two short pulses: an angle above was skipped.
+function warnSkipped() as Void {
+    if (Attention has :vibrate) {
+        Attention.vibrate([
+            new Attention.VibeProfile(100, 250),
+            new Attention.VibeProfile(0, 150),
+            new Attention.VibeProfile(100, 250)
+        ]);
     }
 }
 

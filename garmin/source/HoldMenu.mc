@@ -37,9 +37,49 @@ class HoldMenu extends WatchUi.Menu2 {
         }
     }
 
+    function untickAll() as Void {
+        for (var i = FIRST_HOLD; i < 1000; i++) {
+            var it = getItem(i);
+            if (it == null) {
+                break;
+            }
+            (it as WatchUi.ToggleMenuItem).setEnabled(false);
+        }
+        getItem(0).setSubLabel("0 selected");
+        WatchUi.requestUpdate();
+    }
+
     function setSyncStatus(text as String) as Void {
         getItem(SYNC_ITEM).setSubLabel(text);
         WatchUi.requestUpdate();
+    }
+}
+
+// Resets run only after "Yes", so a stray press cannot wipe anything.
+class ResetConfirm extends WatchUi.ConfirmationDelegate {
+    hidden var _what as Symbol;
+    hidden var _item as WatchUi.MenuItem;
+    hidden var _menu as HoldMenu;
+
+    function initialize(what as Symbol, item as WatchUi.MenuItem, menu as HoldMenu) {
+        ConfirmationDelegate.initialize();
+        _what = what;
+        _item = item;
+        _menu = menu;
+    }
+
+    function onResponse(response as WatchUi.Confirm) as Boolean {
+        if (response != WatchUi.CONFIRM_YES) {
+            return true;
+        }
+        if (_what == :resetHolds) {
+            Storage.setValue("picked", []);
+            _menu.untickAll();
+            return true;
+        }
+        clearProgress();
+        _item.setSubLabel("cleared");
+        return true;
     }
 }
 
@@ -53,15 +93,9 @@ class HoldMenuDelegate extends WatchUi.Menu2InputDelegate {
 
     function onSelect(item as WatchUi.MenuItem) as Void {
         var id = item.getId();
-        if (id == :resetHolds) {
-            Storage.setValue("picked", []);
-            showHoldMenu();
-            return;
-        }
-        if (id == :reset) {
-            clearProgress();
-            item.setSubLabel("cleared");
-            WatchUi.requestUpdate();
+        if (id == :resetHolds || id == :reset) {
+            var question = id == :reset ? "Reset progress?" : "Untick all holds?";
+            WatchUi.pushView(new WatchUi.Confirmation(question), new ResetConfirm(id as Symbol, item, _menu), WatchUi.SLIDE_IMMEDIATE);
             return;
         }
         if (id == :sync) {

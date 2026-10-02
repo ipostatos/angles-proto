@@ -14,8 +14,8 @@ Garmin models; only the Instinct 3 AMOLED 45mm build is tested).
 |---|---|
 | **BIG MODE** · `N selected` | One angle per screen, large. |
 | **LIST** | All angles of the selected holds as a colored list. |
-| **RESET PROGRESS** | Clears the cut marks (green/red). Keeps the selected holds. |
-| **RESET HOLDS** | Unticks all holds. Keeps the cut marks. |
+| **RESET PROGRESS** | Asks *Reset progress?*, then clears the cut marks (green/red). Keeps the selected holds. |
+| **RESET HOLDS** | Asks *Untick all holds?*, then unticks all holds. Keeps the cut marks. |
 | **FROM PHONE** | Pulls the holds sent from the website (see below). Shows `no phone / offline` if it fails. |
 | hold names | Toggle a hold on/off. |
 
@@ -23,7 +23,8 @@ Garmin models; only the Instinct 3 AMOLED 45mm build is tested).
 low → high.
 
 **Colors:** green = cut; red = missed (not cut, but a later angle of the same
-saw is already cut).
+saw is already cut). Marking an angle while one above it in the same saw is
+still open vibrates twice, so a skip is noticed right away.
 
 **BIG MODE buttons:** START marks the angle cut and jumps to the next open one
 (press again on a cut angle to unmark); UP / DOWN browse.
