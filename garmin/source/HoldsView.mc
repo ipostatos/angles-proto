@@ -60,9 +60,10 @@ class HoldsView extends ScrollList {
         var name = (_catalog[i - ACTIONS.size()] as Array)[0] as String;
         var on = _picked.indexOf(name) >= 0;
         var font = Graphics.FONT_SMALL;
-        var tw = dc.getTextWidthInPixels(name, font);
         var box = rowH / 3;
         var gap = box / 2;
+        name = fit(dc, name, font, rowWidth(dc, y, rowH) - box - gap);
+        var tw = dc.getTextWidthInPixels(name, font);
         var x = cx - (tw + box + gap) / 2;
         dc.setColor(on ? 0x00C040 : Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.setPenWidth(2);

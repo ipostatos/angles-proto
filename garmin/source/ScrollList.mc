@@ -1,4 +1,5 @@
 import Toybox.Graphics;
+import Toybox.Math;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
@@ -43,6 +44,31 @@ class ScrollList extends WatchUi.View {
                 drawRow(dc, i, h / 2 + k * rowH - rowH / 2, rowH, k == 0);
             }
         }
+    }
+
+    // Usable text width of a row: inside the focus frame and inside the
+    // round screen edge at the row's outer border.
+    function rowWidth(dc as Graphics.Dc, y as Number, rowH as Number) as Number {
+        var w = dc.getWidth();
+        var r = w / 2;
+        var dy = (y + rowH / 2 - dc.getHeight() / 2).abs() + rowH / 2;
+        var chord = dy < r ? 2 * Math.sqrt(r * r - dy * dy).toNumber() : 0;
+        var frame = w - w / 5 - 20;
+        return chord - 16 < frame ? chord - 16 : frame;
+    }
+
+    // Shorten text with "…" until it fits maxW.
+    function fit(dc as Graphics.Dc, text as String, font as Graphics.FontType, maxW as Number) as String {
+        if (dc.getTextWidthInPixels(text, font) <= maxW) {
+            return text;
+        }
+        for (var n = text.length() - 1; n > 0; n--) {
+            var t = text.substring(0, n) + "…";
+            if (dc.getTextWidthInPixels(t, font) <= maxW) {
+                return t;
+            }
+        }
+        return "…";
     }
 
     // Rounded focus frame across the row.

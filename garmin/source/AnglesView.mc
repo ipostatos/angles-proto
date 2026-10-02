@@ -53,9 +53,15 @@ class AnglesView extends ScrollList {
         if (focused) {
             drawFocus(dc, y, rowH);
         }
+        // angle + hold centered as one group, the name shortened if needed
+        var angle = formatValue(e[1] as Float) + "°";
+        var aw = dc.getTextWidthInPixels(angle, Graphics.FONT_MEDIUM);
+        var gap = 10;
+        var name = fit(dc, e[2] as String, Graphics.FONT_XTINY, rowWidth(dc, y, rowH) - aw - gap);
+        var x = cx - (aw + gap + dc.getTextWidthInPixels(name, Graphics.FONT_XTINY)) / 2;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx - 6, mid, Graphics.FONT_MEDIUM, formatValue(e[1] as Float) + "°", Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-        dc.drawText(cx + 8, mid, Graphics.FONT_XTINY, e[2] as String, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(x, mid, Graphics.FONT_MEDIUM, angle, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(x + aw + gap, mid, Graphics.FONT_XTINY, name, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     function select() as Void {
