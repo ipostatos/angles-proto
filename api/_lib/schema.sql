@@ -38,3 +38,12 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 );
 
 CREATE INDEX IF NOT EXISTS login_attempts_reset_at_idx ON login_attempts (reset_at);
+
+-- Last hold selection sent to the Garmin watch ("Send to watch" button).
+-- Also created lazily by /api/watch on first use.
+CREATE TABLE IF NOT EXISTS watch_selection (
+  id      INT PRIMARY KEY DEFAULT 1,
+  holds   JSONB NOT NULL,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT watch_selection_single_row CHECK (id = 1)
+);
