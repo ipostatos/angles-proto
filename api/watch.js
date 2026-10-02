@@ -1,6 +1,6 @@
 // GET  /api/watch → compact public catalog + last selection sent from the web,
 //                   for the Garmin watch app (Connect IQ responses must stay small).
-//      { r: revision, h: [[holdName, [main], [stefan]], ...], s: [holdName], t: sentAtMs }
+//      { r: revision, h: [[holdName, [main], [stefan]], ...], s: [holdName], t: sentAt (unix seconds, fits a watch Number) }
 // POST /api/watch { holds: [holdName] } → "Send to watch" button on the main page.
 import { getState } from './_lib/stateService.js';
 import { neonStore } from './_lib/stateStore.js';
@@ -38,7 +38,7 @@ export const neonWatchStore = {
         await this.ensure();
         const rows = await getSql()`SELECT holds, sent_at FROM watch_selection WHERE id = 1`;
         if (!rows[0]) return null;
-        return { holds: rows[0].holds, sentAt: new Date(rows[0].sent_at).getTime() };
+        return { holds: rows[0].holds, sentAt: Math.floor(new Date(rows[0].sent_at).getTime() / 1000) };
     },
     async write(holds) {
         await this.ensure();
@@ -48,7 +48,7 @@ export const neonWatchStore = {
             ON CONFLICT (id) DO UPDATE SET holds = EXCLUDED.holds, sent_at = EXCLUDED.sent_at
             RETURNING sent_at
         `;
-        return new Date(rows[0].sent_at).getTime();
+        return Math.floor(new Date(rows[0].sent_at).getTime() / 1000);
     },
 };
 
