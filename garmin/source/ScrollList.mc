@@ -72,6 +72,12 @@ class ScrollDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
+    // Hold UP (MENU): jump to the top of the list.
+    function onMenu() as Boolean {
+        _v.move(-_v.index);
+        return true;
+    }
+
     function onSelect() as Boolean {
         _v.select();
         return true;

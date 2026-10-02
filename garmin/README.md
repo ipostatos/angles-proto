@@ -21,7 +21,8 @@ Garmin models; only the Instinct 3 AMOLED 45mm build is tested).
 
 All screens are drawn by the app itself (no system menus), so the Instinct 3
 round subscreen icon never appears. Buttons everywhere: UP / DOWN move,
-START selects or marks, BACK goes back.
+START selects or marks, BACK goes back. Hold UP (MENU) jumps to the top of a list
+(in BIG MODE: back to the first angle).
 
 **Order of angles** (same as the web work mode): MAIN high → low, then STEFAN
 low → high.

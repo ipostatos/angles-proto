@@ -69,6 +69,13 @@ class BigDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
+    // Hold UP (MENU): back to the first angle.
+    function onMenu() as Boolean {
+        _v.index = 0;
+        WatchUi.requestUpdate();
+        return true;
+    }
+
     function onPreviousPage() as Boolean {
         if (_v.index > 0) {
             _v.index--;
